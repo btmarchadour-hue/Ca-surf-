@@ -19,6 +19,15 @@ export interface SurfSpot {
   offshoreDeg: number;
   /** Ideal incoming swell direction (degrees FROM) */
   idealSwellDeg: number;
+  /**
+   * Coastal swell exposure coefficient (0.20 = deeply sheltered bay like Morgat behind Cap de la Chèvre,
+   * 0.45 = repli spot like L'Aber/Postolonnec, 0.78 = recessed bay like Goulien, 1.0 = full open ocean like La Palue).
+   */
+  swellExposure?: number;
+  /** Half-angle (degrees) of the unobstructed swell window centered on idealSwellDeg */
+  swellWindowHalfAngle?: number;
+  /** True for sheltered storm-fallback / repli spots that stay flat on ordinary swells */
+  isShelterSpot?: boolean;
   idealMinWave: number;
   idealMaxWave: number;
   breakType: BreakType;
@@ -35,7 +44,12 @@ export interface HourlySurfPoint {
   timeIso: string;
   dateKey: string; // YYYY-MM-DD
   hour: number; // 0..23
-  waveHeight: number; // meters
+  /** Estimated breaking wave height at the beach after coastal exposure & headland refraction (meters) */
+  waveHeight: number;
+  /** Raw Open-Meteo offshore grid wave height before coastal attenuation (meters) */
+  offshoreWaveHeight: number;
+  /** Effective swell transmission ratio reaching the break (0..1.05) */
+  coastalTransmission: number;
   waveDirection: number; // degrees
   wavePeriod: number; // seconds
   swellHeight: number;
@@ -212,4 +226,12 @@ export interface SpotWebcamInfo {
 }
 
 export type ActiveTab = 'session' | 'spots' | 'crew' | 'profile';
+
+export interface UserLocation {
+  lat: number;
+  lng: number;
+  label: string;
+  source: 'gps' | 'city';
+}
+
 

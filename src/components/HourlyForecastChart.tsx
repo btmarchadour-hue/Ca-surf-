@@ -148,7 +148,11 @@ export function HourlyForecastChart({ points, bestWindow }: HourlyForecastChartP
                 y={paddingTop - 8}
                 className="fill-[#F7C266] text-[10px] font-semibold tracking-wide"
               >
-                Créneau feu vert
+                {bestWindow && bestWindow.avgScore >= 6.0
+                  ? 'Créneau feu vert'
+                  : bestWindow && bestWindow.avgScore >= 4.2
+                  ? 'Meilleur créneau'
+                  : 'Créneau le moins plat'}
               </text>
             </g>
           )}
@@ -271,13 +275,19 @@ export function HourlyForecastChart({ points, bestWindow }: HourlyForecastChartP
           </div>
 
           <div>
-            <div className="text-[11px] text-[#7D9BAC]">Houle & période</div>
+            <div className="text-[11px] text-[#7D9BAC]">Vagues & période</div>
             <div className="mt-1 font-mono tabular-nums font-semibold text-[#F3F7FA]">
               {activePoint.waveHeight.toFixed(1).replace('.', ',')} m ·{' '}
               {Math.round(activePoint.swellPeriod)} s
             </div>
             <div className="text-xs text-[#94ACB9] font-mono tabular-nums">
               Dir. {degreesToCompass(activePoint.swellDirection)} ({activePoint.swellDirection}°)
+              {activePoint.offshoreWaveHeight - activePoint.waveHeight >= 0.35 && (
+                <span className="text-[#F7C266]/90">
+                  {' '}
+                  · large {activePoint.offshoreWaveHeight.toFixed(1).replace('.', ',')} m
+                </span>
+              )}
             </div>
           </div>
 

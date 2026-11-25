@@ -1,5 +1,4 @@
 import { motion } from 'motion/react';
-import { scoreLabelFr } from '../lib/surfEngine';
 
 interface SurfScoreDialProps {
   score: number;
@@ -29,11 +28,15 @@ export function SurfScoreDial({
   const fillLength = trackLength * (clamped / 10);
 
   const tone =
-    clamped >= 7.5
+    clamped >= 7.7
       ? { start: '#2DD4BF', end: '#F7B955', text: 'text-[#2DD4BF]', verdict: 'Feu vert' }
-      : clamped >= 5.5
-      ? { start: '#F0A53A', end: '#F7C96B', text: 'text-[#F0A53A]', verdict: scoreLabelFr(clamped).label }
-      : { start: '#FB7185', end: '#F0A53A', text: 'text-[#FB7185]', verdict: scoreLabelFr(clamped).label };
+      : clamped >= 5.9
+      ? { start: '#F0A53A', end: '#F7C96B', text: 'text-[#F0A53A]', verdict: 'Bonne session' }
+      : clamped >= 4.2
+      ? { start: '#F0A53A', end: '#FB923C', text: 'text-[#F7C266]', verdict: 'Surfable' }
+      : clamped >= 2.4
+      ? { start: '#FB7185', end: '#F0A53A', text: 'text-[#FB7185]', verdict: 'Trop mou' }
+      : { start: '#F43F5E', end: '#FB7185', text: 'text-[#FB7185]', verdict: 'Plat' };
 
   const gradId = `surf-dial-${size}-${Math.round(clamped * 10)}`;
 

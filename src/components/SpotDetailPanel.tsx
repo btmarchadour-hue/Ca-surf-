@@ -13,6 +13,7 @@ import {
 import { BOARD_TYPE_LABELS, SURFER_LEVEL_LABELS } from '../data/spots';
 import {
   degreesToCompass,
+  exposureLabelFr,
   findBestWindowForSpot,
   findShelterFallback,
   formatFrenchDateLabel,
@@ -194,9 +195,15 @@ export function SpotDetailPanel({
             src={spot.imageUrl}
             alt={`${spot.town} — ${spot.name}`}
             title={spot.name}
-            className="w-full h-full object-cover"
+            lat={spot.lat}
+            lng={spot.lng}
+            offshoreDeg={spot.offshoreDeg}
+            idealSwellDeg={spot.idealSwellDeg}
+            breakType={spot.breakType}
+            showSourceTag
+            className="w-full h-full"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#060E15]/95 via-[#060E15]/35 to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#060E15]/95 via-[#060E15]/35 to-transparent" />
           <div className="absolute bottom-5 left-5 right-5 text-white">
             <div className="text-xs font-medium text-[#F7C266]">
               {spot.region} · {breakTypeFr} · {SURFER_LEVEL_LABELS[spot.difficulty].label}
@@ -240,12 +247,21 @@ export function SpotDetailPanel({
           {current ? (
             <div className="pt-5 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
-                <div className="text-xs text-[#8AA6B7]">Houle live</div>
+                <div className="text-xs text-[#8AA6B7]">
+                  {current.offshoreWaveHeight - current.waveHeight >= 0.35
+                    ? 'Vagues estimées au bord'
+                    : 'Houle live'}
+                </div>
                 <div className="mt-1 font-display text-2xl font-bold tabular-nums text-[#38BDF8] leading-none">
                   {current.waveHeight.toFixed(1).replace('.', ',')} m
                 </div>
                 <div className="mt-1 text-xs font-mono tabular-nums text-[#94ACB9]">
                   {Math.round(current.swellPeriod)} s · {degreesToCompass(current.swellDirection)}
+                  {current.offshoreWaveHeight - current.waveHeight >= 0.35 && (
+                    <span className="block text-[11px] font-sans text-[#F7C266]/90 mt-0.5">
+                      Abrité ({current.offshoreWaveHeight.toFixed(1).replace('.', ',')} m au large)
+                    </span>
+                  )}
                 </div>
               </div>
               <div>
@@ -401,6 +417,12 @@ export function SpotDetailPanel({
                 <span className="font-mono tabular-nums font-medium text-[#F3F7FA]">
                   {spot.idealMinWave.toFixed(1).replace('.', ',')} m –{' '}
                   {spot.idealMaxWave.toFixed(1).replace('.', ',')} m
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>Exposition houle</span>
+                <span className="font-medium text-[#F3F7FA] text-right">
+                  {exposureLabelFr(spot)}
                 </span>
               </div>
               <div className="flex justify-between gap-2">

@@ -118,14 +118,106 @@ export function recommendWetsuitFr(waterTemp: number | null): string {
   return 'Shorty ou boardshort';
 }
 
-export function scoreLabelFr(score: number): {
+export function exposureLabelFr(spot: SurfSpot): string {
+  const exp = spot.swellExposure ?? 0.9;
+  if (exp <= 0.3) return 'Très abrité (repli grosse houle)';
+  if (exp <= 0.58) return 'Spot de repli abrité';
+  if (exp <= 0.84) return 'Semi-exposé';
+  return 'Plein océan (aimant à houle)';
+}
+
+/**
+ * Estimates the realistic breaking wave height at the beach from Open-Meteo's coarse (~5-10 km)
+ * offshore marine grid by applying spot coastal exposure, headland shadowing, and long-period refraction.
+ * Example: Morgat behind Cap de la Chèvre (exposure 0.24, ideal SSW 205°) drops to ~0.2m on a
+ * standard 1.6m WNW swell, and only wakes up (~1.0m+) during 3.5m-5m winter storms or direct S/SO swells.
+ */
+export function estimateCoastalWaveMetrics(
+  spot: SurfSpot,
+  rawWaveHeight: number,
+  rawSwellHeight: number,
+  swellDirection: number,
+  swellPeriod: number
+): {
+  waveHeight: number;
+  swellHeight: number;
+  offshoreWaveHeight: number;
+  coastalTransmission: number;
+} {
+  const offshoreWaveHeight = Number(Math.max(0, rawWaveHeight).toFixed(2));
+  const offshoreSwellHeight = Number(Math.max(0, rawSwellHeight).toFixed(2));
+
+  const exposure = spot.swellExposure ?? 0.9;
+  const halfWindow = spot.swellWindowHalfAngle ?? 65;
+  const angleDiff = angularDifference(swellDirection, spot.idealSwellDeg);
+
+  // 1. Directional attenuation from headland / bay mouth geometry
+  let dirFactor = 1.0;
+  if (angleDiff <= halfWindow) {
+    dirFactor = 1.0 - (angleDiff / Math.max(halfWindow, 1)) * 0.14;
+  } else {
+    const excessDeg = Math.min(115, angleDiff - halfWindow);
+    const progress = excessDeg / 115;
+    // Long-period groundswells (>= 12s) refract better around capes than short wind chop (<= 8s)
+    const refractionBonus = Math.max(0, Math.min(0.22, (swellPeriod - 9) * 0.032));
+    const shadowFloor = spot.isShelterSpot ? 0.18 + refractionBonus * 0.7 : 0.38 + refractionBonus;
+    dirFactor = Math.max(shadowFloor, 0.86 - progress * (0.86 - shadowFloor));
+  }
+
+  // 2. Period wrap factor for sheltered bays (short wind-swell doesn't wrap around headlands)
+  const periodWrapFactor =
+    exposure < 0.7
+      ? swellPeriod >= 14
+        ? 1.16
+        : swellPeriod >= 12
+        ? 1.05
+        : swellPeriod >= 10
+        ? 0.93
+        : swellPeriod >= 8
+        ? 0.8
+        : 0.65
+      : 1.0;
+
+  const coastalTransmission = Number(
+    Math.min(1.05, Math.max(0.08, exposure * dirFactor * periodWrapFactor)).toFixed(2)
+  );
+
+  // Local wind-sea component (when rawWaveHeight > rawSwellHeight) also attenuates inside sheltered bays
+  const breakingSwell = offshoreSwellHeight * coastalTransmission;
+  const windSeaPart = Math.max(0, offshoreWaveHeight - offshoreSwellHeight);
+  const windSeaTransmission = spot.isShelterSpot
+    ? Math.min(0.45, coastalTransmission * 1.15)
+    : Math.min(1.0, Math.max(coastalTransmission, exposure * 0.85));
+  const breakingWave = breakingSwell + windSeaPart * windSeaTransmission;
+
+  return {
+    waveHeight: Number(Math.max(0, breakingWave).toFixed(2)),
+    swellHeight: Number(Math.max(0, breakingSwell).toFixed(2)),
+    offshoreWaveHeight,
+    coastalTransmission,
+  };
+}
+
+export function scoreLabelFr(
+  score: number,
+  waveHeight?: number
+): {
   label: string;
   tone: 'optimal' | 'good' | 'fair' | 'poor';
 } {
-  if (score >= 7.6) return { label: 'Session feu vert', tone: 'optimal' };
-  if (score >= 5.8) return { label: 'Bonne session', tone: 'good' };
-  if (score >= 4.0) return { label: 'Surfable', tone: 'fair' };
-  return { label: 'Conditions dégradées', tone: 'poor' };
+  if (score >= 7.7) return { label: 'Session feu vert', tone: 'optimal' };
+  if (score >= 5.9) return { label: 'Bonne session', tone: 'good' };
+  if (score >= 4.2) return { label: 'Surfable', tone: 'fair' };
+  if (score >= 2.4) {
+    if (waveHeight !== undefined && waveHeight >= 2.6) {
+      return { label: 'Saturé / Agité', tone: 'poor' };
+    }
+    return { label: 'Trop petit / Mou', tone: 'poor' };
+  }
+  if (waveHeight !== undefined && waveHeight >= 2.6) {
+    return { label: 'Saturé / Non surfable', tone: 'poor' };
+  }
+  return { label: 'Plat / Pas surfable', tone: 'poor' };
 }
 
 export function evaluateProfileFit(
@@ -139,6 +231,25 @@ export function evaluateProfileFit(
   const boardMatch = spot.bestBoards.includes(boardType);
   const levelLabel = SURFER_LEVEL_LABELS[surferLevel].label.toLowerCase();
   const boardLabel = BOARD_TYPE_LABELS[boardType].label;
+
+  // Flat / sheltered bay guard: never pretend a flat bay is a great fit
+  if (avgWaveHeight < 0.35) {
+    return {
+      fitStatus: 'challenging',
+      multiplier: 0.72,
+      reason: spot.isShelterSpot
+        ? `Spot de repli trop abrité sur cette houle — il faut une grosse houle au large pour que ça rentre.`
+        : `Plan d’eau plat ou insuffisant (${avgWaveHeight.toFixed(1).replace('.', ',')} m estimés) pour surfer.`,
+    };
+  }
+
+  if (avgWaveHeight < 0.5 && boardType !== 'longboard') {
+    return {
+      fitStatus: 'compatible',
+      multiplier: 0.82,
+      reason: `Micro-vagues (${avgWaveHeight.toFixed(1).replace('.', ',')} m) : trop mou pour votre ${boardLabel}, longboard obligatoire.`,
+    };
+  }
 
   // Safety / coherence guard: don't send beginners into heavy expert spots or big surf
   if (spotRank - userRank >= 2 || (surferLevel === 'beginner' && avgWaveHeight > 1.7)) {
@@ -154,6 +265,14 @@ export function evaluateProfileFit(
       fitStatus: 'challenging',
       multiplier: 0.76,
       reason: `Vagues solides pour un niveau ${levelLabel} ; restez vigilant sur le placement au pic.`,
+    };
+  }
+
+  if (avgWaveHeight < spot.idealMinWave * 0.72) {
+    return {
+      fitStatus: 'compatible',
+      multiplier: 0.85,
+      reason: `Sous le seuil idéal du spot (${spot.idealMinWave.toFixed(1).replace('.', ',')} m min.) — vagues molles ou rares.`,
     };
   }
 
@@ -173,10 +292,10 @@ export function evaluateProfileFit(
     };
   }
 
-  if (boardType === 'shortboard' && avgWaveHeight < 0.75) {
+  if (boardType === 'shortboard' && avgWaveHeight < 0.8) {
     return {
       fitStatus: 'compatible',
-      multiplier: 0.88,
+      multiplier: 0.84,
       reason: `Un peu mou pour un shortboard ; sortez plutôt du volume ou un fish.`,
     };
   }
@@ -189,7 +308,9 @@ export function evaluateProfileFit(
 }
 
 /**
- * Deterministic physics + surfer-profile surfability score (0 to 10)
+ * Deterministic physics + surfer-profile surfability score (0 to 10).
+ * Uses wave height as a multiplicative surfability gate so a flat sheltered bay
+ * with offshore wind NEVER scores above ~1.2/10.
  */
 export function computeHourlySurfScore(
   spot: SurfSpot,
@@ -200,52 +321,61 @@ export function computeHourlySurfScore(
     swellDirection: number;
     windSpeed: number;
     windQuality: WindQuality;
+    coastalTransmission?: number;
   },
   prefs?: Partial<SurferPreferences>
 ): number {
   const effectiveHeight = Math.max(point.swellHeight, point.waveHeight);
-  const minIdeal = prefs?.minWaveHeight ?? spot.idealMinWave;
-  const maxIdeal = prefs?.maxWaveHeight ?? spot.idealMaxWave;
+  const minIdeal = prefs?.minWaveHeight
+    ? Math.max(spot.idealMinWave * 0.75, prefs.minWaveHeight)
+    : spot.idealMinWave;
+  const maxIdeal = prefs?.maxWaveHeight
+    ? Math.min(spot.idealMaxWave + 0.5, prefs.maxWaveHeight)
+    : spot.idealMaxWave;
   const maxWind = prefs?.maxWindSpeed ?? 26;
+  const isLongboard = prefs?.boardType === 'longboard';
+  const isShortboard = prefs?.boardType === 'shortboard';
 
-  // 1. Wave height score (0..3.6)
+  // 1. Wave height score (0..3.8)
   let heightScore = 0;
-  if (effectiveHeight < 0.35) {
-    heightScore = 0.2;
+  if (effectiveHeight < 0.28) {
+    heightScore = 0.05;
   } else if (effectiveHeight >= minIdeal && effectiveHeight <= maxIdeal) {
-    heightScore = 3.6;
+    heightScore = 3.8;
   } else if (effectiveHeight < minIdeal) {
-    const ratio = effectiveHeight / Math.max(minIdeal, 0.4);
-    heightScore = Math.max(0.4, ratio * 3.1);
+    const ratio = effectiveHeight / Math.max(minIdeal, 0.45);
+    heightScore = Math.max(0.25, Math.pow(ratio, 1.35) * 3.2);
   } else {
     const excess = effectiveHeight - maxIdeal;
-    heightScore = Math.max(0.6, 3.4 - excess * 1.25);
+    heightScore = Math.max(0.2, 3.5 - excess * 1.45);
   }
 
-  // 2. Swell period score (0..2.4)
-  let periodScore = 0.6;
-  if (point.swellPeriod >= 14) periodScore = 2.4;
-  else if (point.swellPeriod >= 12) periodScore = 2.15;
-  else if (point.swellPeriod >= 10) periodScore = 1.75;
-  else if (point.swellPeriod >= 8) periodScore = 1.25;
-  else periodScore = 0.7;
+  // 2. Swell period score (0..2.3)
+  let periodScore = 0.5;
+  if (point.swellPeriod >= 14) periodScore = 2.3;
+  else if (point.swellPeriod >= 12) periodScore = 2.05;
+  else if (point.swellPeriod >= 10) periodScore = 1.65;
+  else if (point.swellPeriod >= 8) periodScore = 1.1;
+  else if (point.swellPeriod >= 6.5) periodScore = 0.6;
+  else periodScore = 0.25;
 
-  // 3. Wind quality & speed score (0..3.4)
-  let windScore = 1.5;
+  // 3. Wind quality & speed score (0..3.3)
+  let windScore = 1.4;
   if (point.windQuality === 'glassy') {
-    windScore = 3.4;
+    windScore = 3.3;
   } else if (point.windQuality === 'offshore') {
-    if (point.windSpeed <= 18) windScore = 3.3;
-    else if (point.windSpeed <= 28) windScore = 2.6;
-    else windScore = 1.6;
+    if (point.windSpeed <= 18) windScore = 3.2;
+    else if (point.windSpeed <= 28) windScore = 2.45;
+    else if (point.windSpeed <= 38) windScore = 1.6;
+    else windScore = 0.9;
   } else if (point.windQuality === 'cross') {
-    if (point.windSpeed <= 14) windScore = 2.1;
-    else if (point.windSpeed <= 22) windScore = 1.3;
-    else windScore = 0.6;
+    if (point.windSpeed <= 12) windScore = 2.0;
+    else if (point.windSpeed <= 20) windScore = 1.25;
+    else windScore = 0.5;
   } else {
-    if (point.windSpeed <= 12) windScore = 1.3;
-    else if (point.windSpeed <= 20) windScore = 0.6;
-    else windScore = 0.15;
+    if (point.windSpeed <= 10) windScore = 1.15;
+    else if (point.windSpeed <= 18) windScore = 0.55;
+    else windScore = 0.1;
   }
 
   if (
@@ -260,17 +390,59 @@ export function computeHourlySurfScore(
 
   // 4. Swell direction alignment (0..0.6)
   const swellDiff = angularDifference(point.swellDirection, spot.idealSwellDeg);
-  const swellDirScore = swellDiff <= 35 ? 0.6 : swellDiff <= 70 ? 0.4 : 0.15;
+  const halfWindow = spot.swellWindowHalfAngle ?? 65;
+  const swellDirScore =
+    swellDiff <= halfWindow * 0.65
+      ? 0.6
+      : swellDiff <= halfWindow
+      ? 0.42
+      : swellDiff <= halfWindow + 35
+      ? 0.2
+      : 0.05;
 
   let raw = heightScore + periodScore + windScore + swellDirScore;
 
-  // 5. Surfer level & board coherence multiplier
+  // 5. Severe onshore storm & closing-out dampeners
+  if (point.windQuality === 'onshore' && point.windSpeed >= 24) {
+    raw *= 0.62;
+  }
+  if (effectiveHeight > spot.idealMaxWave + 0.9) {
+    const closeoutPenalty = Math.max(0.35, 1 - (effectiveHeight - spot.idealMaxWave - 0.9) * 0.25);
+    raw *= closeoutPenalty;
+  }
+
+  // 6. Surfer level & board coherence multiplier
   if (prefs?.surferLevel && prefs?.boardType) {
     const fit = evaluateProfileFit(spot, effectiveHeight, prefs.surferLevel, prefs.boardType);
     raw *= fit.multiplier;
   }
 
-  return Number(Math.min(10, Math.max(0.5, raw)).toFixed(1));
+  // 7. STRICT MULTIPLICATIVE WAVE-ENERGY GATE:
+  // Offshore wind and 13s period cannot create surfable waves out of a flat lake.
+  let energyCap = 10;
+  if (effectiveHeight < 0.28) {
+    // Completely flat
+    energyCap = 0.5 + (effectiveHeight / 0.28) * 0.7; // 0.5..1.2
+  } else if (effectiveHeight < 0.44) {
+    // Ankle-to-shin micro ripple
+    const t = (effectiveHeight - 0.28) / 0.16;
+    const maxCap = isLongboard ? 3.2 : isShortboard ? 2.0 : 2.6;
+    energyCap = 1.2 + t * (maxCap - 1.2);
+  } else if (effectiveHeight < 0.62) {
+    // Knee-to-thigh small surf
+    const t = (effectiveHeight - 0.44) / 0.18;
+    const minCap = isLongboard ? 3.2 : isShortboard ? 2.0 : 2.6;
+    const maxCap = isLongboard ? 6.0 : isShortboard ? 4.2 : 5.2;
+    energyCap = minCap + t * (maxCap - minCap);
+  }
+
+  // Reef / point / big-wave bar minimum activation threshold (e.g. Mundaka, Parlementia, Pen Hat)
+  if (spot.idealMinWave >= 1.1 && effectiveHeight < spot.idealMinWave * 0.65) {
+    energyCap = Math.min(energyCap, 4.2);
+  }
+
+  const finalScore = Math.min(raw, energyCap);
+  return Number(Math.min(10, Math.max(0.5, finalScore)).toFixed(1));
 }
 
 function parseIsoHour(iso: string): number {
@@ -357,12 +529,23 @@ async function fetchSpotChunk(spots: SurfSpot[]): Promise<Record<string, SpotFor
     const hourly: HourlySurfPoint[] = marine.time.map((timeIso, hIdx) => {
       const [dateKey, timePart = '00:00'] = timeIso.split('T');
       const hour = Number(timePart.split(':')[0]);
-      const waveHeight = Number((marine.wave_height[hIdx] ?? 0).toFixed(2));
+      const rawWaveHeight = Number((marine.wave_height[hIdx] ?? 0).toFixed(2));
       const waveDirection = Math.round(marine.wave_direction[hIdx] ?? spot.idealSwellDeg);
       const wavePeriod = Number((marine.wave_period[hIdx] ?? 8).toFixed(1));
-      const swellHeight = Number((marine.swell_wave_height[hIdx] ?? waveHeight).toFixed(2));
+      const rawSwellHeight = Number((marine.swell_wave_height[hIdx] ?? rawWaveHeight).toFixed(2));
       const swellDirection = Math.round(marine.swell_wave_direction[hIdx] ?? waveDirection);
       const swellPeriod = Number((marine.swell_wave_period[hIdx] ?? wavePeriod).toFixed(1));
+
+      const coastal = estimateCoastalWaveMetrics(
+        spot,
+        rawWaveHeight,
+        rawSwellHeight,
+        swellDirection,
+        swellPeriod
+      );
+      const waveHeight = coastal.waveHeight;
+      const swellHeight = coastal.swellHeight;
+
       const rawWater = marine.sea_surface_temperature?.[hIdx];
       const waterTemp =
         rawWater !== null && rawWater !== undefined && Number.isFinite(rawWater)
@@ -389,6 +572,7 @@ async function fetchSpotChunk(spots: SurfSpot[]): Promise<Record<string, SpotFor
         swellDirection,
         windSpeed,
         windQuality,
+        coastalTransmission: coastal.coastalTransmission,
       });
 
       return {
@@ -396,6 +580,8 @@ async function fetchSpotChunk(spots: SurfSpot[]): Promise<Record<string, SpotFor
         dateKey,
         hour,
         waveHeight,
+        offshoreWaveHeight: coastal.offshoreWaveHeight,
+        coastalTransmission: coastal.coastalTransmission,
         waveDirection,
         wavePeriod,
         swellHeight,
@@ -658,6 +844,9 @@ export function findShelterFallback(
     const rec = findBestWindowForSpot(candidate, forecasts[candidate.id], dateKey, prefs, options);
     if (!rec) continue;
 
+    // Never propose a flat sheltered bay (e.g. Morgat at 0.2m) as a surfable Mode Repli
+    if (rec.avgWaveHeight < 0.5 || rec.avgScore < 4.2) continue;
+
     const angleDiff = angularDifference(candidate.offshoreDeg, targetSpot.offshoreDeg);
     const windGain =
       WIND_QUALITY_RANK[rec.windQuality] - WIND_QUALITY_RANK[targetRec.windQuality];
@@ -671,16 +860,16 @@ export function findShelterFallback(
         (rec.fitStatus !== 'challenging' ||
           candidate.idealMaxWave <= targetSpot.idealMaxWave ||
           angleDiff >= 35);
-      const helpsScore = scoreGain >= 0.3;
+      const helpsScore = scoreGain >= 0.4;
 
       if (!helpsWind && !helpsSwell && !helpsScore) continue;
     }
 
-    const orientationBonus = angleDiff >= 45 ? 1.35 : angleDiff >= 25 ? 0.6 : 0;
-    const windBonus = windGain > 0 ? windGain * 0.9 : 0;
+    const orientationBonus = angleDiff >= 45 ? 1.15 : angleDiff >= 25 ? 0.5 : 0;
+    const windBonus = windGain > 0 ? windGain * 0.85 : 0;
     const swellReliefBonus =
       isTooBig && rec.fitStatus !== 'challenging' ? 1.2 : 0;
-    const proximityBonus = distanceKm <= 18 ? 0.9 : distanceKm <= 32 ? 0.45 : 0;
+    const proximityBonus = distanceKm <= 18 ? 0.85 : distanceKm <= 32 ? 0.4 : 0;
 
     const rankScore =
       rec.avgScore + orientationBonus + windBonus + swellReliefBonus + proximityBonus;

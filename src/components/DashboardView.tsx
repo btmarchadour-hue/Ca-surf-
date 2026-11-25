@@ -6,15 +6,16 @@ import {
   Compass,
   ExternalLink,
   Eye,
+  LocateFixed,
+  MapPin,
   Plus,
+  Search,
   Shield,
   SlidersHorizontal,
   Video,
 } from 'lucide-react';
 import {
   BOARD_TYPE_LABELS,
-  IMG_CROZON_DAWN,
-  IMG_PARKING_VAN,
   SURFER_LEVEL_LABELS,
 } from '../data/spots';
 import {
@@ -24,6 +25,7 @@ import {
   formatReportAgeFr,
   getLocalDateKey,
   getSpotWebcams,
+  haversineKm,
   rankSpotsForDate,
   scoreLabelFr,
   windQualityLabelFr,
@@ -34,6 +36,7 @@ import type {
   SpotForecast,
   SurferPreferences,
   SurfSpot,
+  UserLocation,
 } from '../types/surf';
 import { CROWD_META, VERDICT_META } from './ParkingCheckCard';
 import { SpotImage } from './SpotImage';
@@ -46,6 +49,10 @@ interface DashboardViewProps {
   loadingForecasts: boolean;
   surferPrefs: SurferPreferences;
   parkingReports: ParkingReportRecord[];
+  userLocation: UserLocation | null;
+  geoStatus: 'idle' | 'locating' | 'granted' | 'denied' | 'error';
+  onRequestGps: () => void;
+  onOpenOtherSpotsSearch: () => void;
   onSelectSpot: (spotId: string) => void;
   onOpenAlertPreview: (dateKey: string) => void;
   onNavigateTab: (tab: ActiveTab) => void;
@@ -59,6 +66,10 @@ export function DashboardView({
   loadingForecasts,
   surferPrefs,
   parkingReports,
+  userLocation,
+  geoStatus,
+  onRequestGps,
+  onOpenOtherSpotsSearch,
   onSelectSpot,
   onOpenAlertPreview,
   onNavigateTab,
@@ -84,20 +95,30 @@ export function DashboardView({
     [chosenSpots, forecasts, activeDateKey, surferPrefs, horizon]
   );
 
-  // Discover coherent firing spots outside user's current selection
+  // Discover coherent firing spots outside user's current selection (scoped to <= 100 km when GPS active)
   const discoveryPicks = useMemo(() => {
     const favSet = new Set(favoriteSpotIds);
-    const others = allSpots.filter((s) => !favSet.has(s.id));
+    const others = allSpots.filter((s) => {
+      if (favSet.has(s.id)) return false;
+      if (userLocation) {
+        return haversineKm(userLocation.lat, userLocation.lng, s.lat, s.lng) <= 100;
+      }
+      return true;
+    });
     return rankSpotsForDate(others, forecasts, activeDateKey, surferPrefs, {
       morningOnly: horizon === 'tomorrow',
       includePastToday: horizon === 'tomorrow',
     })
-      .filter((item) => item.recommendation.fitStatus !== 'challenging')
+      .filter((item) => item.recommendation.fitStatus !== 'challenging' && item.recommendation.avgScore >= 4.2)
       .slice(0, 3);
-  }, [allSpots, favoriteSpotIds, forecasts, activeDateKey, surferPrefs, horizon]);
+  }, [allSpots, favoriteSpotIds, userLocation, forecasts, activeDateKey, surferPrefs, horizon]);
 
   const topPick = rankedChosen[0] ?? null;
   const secondaryChosen = rankedChosen.slice(1);
+  const topDistanceKm =
+    topPick && userLocation
+      ? haversineKm(userLocation.lat, userLocation.lng, topPick.spot.lat, topPick.spot.lng)
+      : null;
 
   const topWebcam = useMemo(
     () => (topPick ? getSpotWebcams(topPick.spot) : null),
@@ -182,33 +203,51 @@ export function DashboardView({
       {/* Dominant Focal Anchor: Cinematic Surf Magazine Cover */}
       <section className="relative rounded-3xl overflow-hidden border border-white/15 shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.14)] min-h-[460px] sm:min-h-[500px] flex flex-col justify-between group">
         <SpotImage
-          src={topPick?.spot.imageUrl || IMG_CROZON_DAWN}
+          src={topPick?.spot.imageUrl || ''}
           alt={
             topPick
               ? `${topPick.spot.town} — ${topPick.spot.name}`
-              : 'Vague bretonne au lever du jour sur la presqu’île de Crozon'
+              : 'Carte marine d’orientation côtière'
           }
-          title={topPick?.spot.name || 'Ça Surf ?'}
-          className="absolute inset-0 w-full h-full object-cover scale-[1.01] group-hover:scale-[1.03] transition-transform duration-700 ease-out"
+          title={topPick ? `${topPick.spot.town} — ${topPick.spot.name}` : 'Ça Surf ?'}
+          lat={topPick?.spot.lat}
+          lng={topPick?.spot.lng}
+          offshoreDeg={topPick?.spot.offshoreDeg}
+          idealSwellDeg={topPick?.spot.idealSwellDeg}
+          breakType={topPick?.spot.breakType}
+          showSourceTag
+          className="absolute inset-0 w-full h-full"
         />
         {/* Layered coastal atmosphere scrims */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#050C12]/96 via-[#07131D]/76 to-[#07131D]/28" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#050C12]/96 via-[#06111A]/25 to-[#060F16]/45" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#050C12]/96 via-[#07131D]/74 to-[#07131D]/26" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#050C12]/96 via-[#06111A]/25 to-[#060F16]/45" />
 
         {/* Top editorial bar */}
         <div className="relative z-10 p-6 sm:p-9 flex items-center justify-between gap-4 flex-wrap">
-          <div className="text-xs text-[#CBD8E1]">
+          <div className="flex items-center gap-2.5 flex-wrap text-xs text-[#CBD8E1]">
             <span className="font-semibold text-[#F3F7FA]">
               {SURFER_LEVEL_LABELS[surferPrefs.surferLevel].label}
-            </span>{' '}
-            <span className="text-white/35">·</span>{' '}
+            </span>
+            <span className="text-white/35">·</span>
             <span className="font-medium text-[#EAF2F7]">
               {BOARD_TYPE_LABELS[surferPrefs.boardType].label}
-            </span>{' '}
-            <span className="text-white/35">·</span>{' '}
+            </span>
+            <span className="text-white/35">·</span>
             <span className="font-mono tabular-nums text-[#F7C266]">
               {chosenSpots.length} spots suivis
             </span>
+            <button
+              type="button"
+              onClick={userLocation ? () => onNavigateTab('spots') : onRequestGps}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#060E15]/80 hover:bg-[#0D1E2B] border border-white/15 text-[11px] font-medium text-[#4AE8D1] transition-colors whitespace-nowrap shrink-0"
+            >
+              <LocateFixed className="w-3 h-3" />
+              {geoStatus === 'locating'
+                ? 'Localisation GPS...'
+                : userLocation
+                ? `${userLocation.label} (<100 km)`
+                : 'Activer GPS (<100 km)'}
+            </button>
           </div>
 
           <div className="flex items-center gap-1 p-1 bg-[#060E15]/85 border border-white/15 rounded-xl backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
@@ -252,6 +291,15 @@ export function DashboardView({
                   <span>
                     Spot n°1 {formatFrenchDateLabel(activeDateKey).toLowerCase()}
                   </span>
+                  {topDistanceKm !== null && (
+                    <>
+                      <span className="text-white/35">·</span>
+                      <span className="inline-flex items-center gap-1 font-mono tabular-nums text-[#4AE8D1]">
+                        <MapPin className="w-3.5 h-3.5" />
+                        {topDistanceKm} km
+                      </span>
+                    </>
+                  )}
                   <span className="text-white/35">·</span>
                   <span className="font-mono tabular-nums text-[#F3F7FA]">
                     Créneau {topPick.recommendation.windowLabel}
@@ -345,7 +393,8 @@ export function DashboardView({
               {topPick.recommendation.windowLabel}
             </div>
             <div className="mt-2 text-xs text-[#94ACB9]">
-              {scoreLabelFr(topPick.recommendation.avgScore).label} · {topPick.spot.idealTide}
+              {scoreLabelFr(topPick.recommendation.avgScore, topPick.recommendation.avgWaveHeight).label} ·{' '}
+              {topPick.spot.idealTide}
             </div>
           </div>
 
@@ -391,34 +440,25 @@ export function DashboardView({
         </section>
       )}
 
-      {/* Terrain > Algo Duo: Check Parking Van Cover + Automatic Mode Repli */}
+      {/* Terrain > Algo Duo: Check Parking + Automatic Mode Repli */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Live Check Parking Card with authentic dune-van photo banner */}
+        {/* Live Check Parking Card (clean coastal header — no fake photo) */}
         <div className="surf-card rounded-2xl overflow-hidden flex flex-col justify-between">
-          <div className="relative h-36 overflow-hidden">
-            <SpotImage
-              src={IMG_PARKING_VAN}
-              alt="Van de surf garé face aux dunes bretonnes au lever du jour"
-              title="Check Parking en direct"
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0A1721] via-[#0A1721]/55 to-[#060E15]/30" />
-            <div className="absolute bottom-3.5 left-5 right-5 flex items-end justify-between gap-3">
-              <div>
-                <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#F7C266]">
-                  <Eye className="w-3.5 h-3.5" />
-                  Terrain &gt; Algo
-                </div>
-                <h2 className="font-display text-2xl font-extrabold tracking-tight text-white leading-none mt-0.5">
-                  Check Parking en direct
-                </h2>
+          <div className="px-5 sm:px-6 py-4 border-b border-white/10 bg-gradient-to-r from-[#F0A53A]/14 via-[#0C1C28]/60 to-transparent flex items-end justify-between gap-3">
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#F7C266]">
+                <Eye className="w-3.5 h-3.5" />
+                Terrain &gt; Algo
               </div>
-              {latestTerrainReport && (
-                <span className="text-xs font-mono text-[#CBD8E1]">
-                  {formatReportAgeFr(latestTerrainReport)}
-                </span>
-              )}
+              <h2 className="font-display text-2xl font-extrabold tracking-tight text-white leading-none mt-1">
+                Check Parking en direct
+              </h2>
             </div>
+            {latestTerrainReport && (
+              <span className="text-xs font-mono text-[#CBD8E1]">
+                {formatReportAgeFr(latestTerrainReport)}
+              </span>
+            )}
           </div>
 
           <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between gap-4">
@@ -491,9 +531,14 @@ export function DashboardView({
                 src={shelterFallback.spot.imageUrl}
                 alt={`${shelterFallback.spot.town} — ${shelterFallback.spot.name}`}
                 title={shelterFallback.spot.name}
-                className="w-full h-full object-cover"
+                lat={shelterFallback.spot.lat}
+                lng={shelterFallback.spot.lng}
+                offshoreDeg={shelterFallback.spot.offshoreDeg}
+                idealSwellDeg={shelterFallback.spot.idealSwellDeg}
+                breakType={shelterFallback.spot.breakType}
+                className="w-full h-full"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0A1923] via-[#0A1923]/60 to-[#060E15]/30" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0A1923] via-[#0A1923]/60 to-[#060E15]/30" />
               <div className="absolute bottom-3.5 left-5 right-5 flex items-end justify-between gap-3">
                 <div className="min-w-0">
                   <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#4AE8D1]">
@@ -597,9 +642,20 @@ export function DashboardView({
                     src={spot.imageUrl}
                     alt={`${spot.town} — ${spot.name}`}
                     title={spot.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                    lat={spot.lat}
+                    lng={spot.lng}
+                    offshoreDeg={spot.offshoreDeg}
+                    idealSwellDeg={spot.idealSwellDeg}
+                    breakType={spot.breakType}
+                    className="w-full h-full group-hover:scale-[1.03] transition-transform duration-500 ease-out"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#08131C] via-[#08131C]/30 to-transparent" />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#08131C] via-[#08131C]/30 to-transparent" />
+                  {userLocation && (
+                    <div className="absolute top-3 left-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#060F16]/80 backdrop-blur-md border border-white/15 text-[11px] font-mono font-semibold tabular-nums text-[#4AE8D1]">
+                      <MapPin className="w-3 h-3" />
+                      {haversineKm(userLocation.lat, userLocation.lng, spot.lat, spot.lng)} km
+                    </div>
+                  )}
                   <div className="absolute bottom-3.5 left-4 right-4 flex items-end justify-between gap-2">
                     <div className="min-w-0">
                       <div className="text-[11px] font-medium text-white/75">
@@ -660,32 +716,47 @@ export function DashboardView({
         )}
       </section>
 
-      {/* Coherent Discovery Picks from the Free API Catalog */}
-      {discoveryPicks.length > 0 && (
-        <section className="space-y-4 pt-4 border-t border-white/10">
-          <div className="flex items-end justify-between gap-4 flex-wrap">
-            <div>
-              <h2 className="font-display text-2xl font-extrabold text-[#F8FBFE] tracking-tight">
-                À surveiller aujourd’hui sur la côte (hors favoris)
-              </h2>
-              <p className="text-xs text-[#8AA6B7] mt-0.5">
-                Détectés en temps réel pour votre niveau{' '}
-                {SURFER_LEVEL_LABELS[surferPrefs.surferLevel].label.toLowerCase()} via Open-Meteo
-                Marine.
-              </p>
-            </div>
+      {/* Coherent Discovery Picks (< 100 km when GPS active) + Link to Other Spots Search */}
+      <section className="space-y-4 pt-4 border-t border-white/10">
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="font-display text-2xl font-extrabold text-[#F8FBFE] tracking-tight">
+              {userLocation
+                ? `À surveiller à moins de 100 km de ${userLocation.label}`
+                : 'À surveiller aujourd’hui sur la côte (hors favoris)'}
+            </h2>
+            <p className="text-xs text-[#8AA6B7] mt-0.5">
+              Détectés en temps réel pour votre niveau{' '}
+              {SURFER_LEVEL_LABELS[surferPrefs.surferLevel].label.toLowerCase()} via Open-Meteo
+              Marine.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
             <button
               type="button"
               onClick={() => onNavigateTab('spots')}
-              className="text-xs font-medium text-[#94ACB9] hover:text-[#F3F7FA] whitespace-nowrap shrink-0 transition-colors"
+              className="text-xs font-medium text-[#4AE8D1] hover:underline whitespace-nowrap shrink-0"
             >
-              Voir les {allSpots.length} spots API
+              Tous les spots &lt; 100 km
+            </button>
+            <button
+              type="button"
+              onClick={onOpenOtherSpotsSearch}
+              className="surf-btn-glass inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#F3F7FA] rounded-lg whitespace-nowrap shrink-0"
+            >
+              <Search className="w-3.5 h-3.5 text-[#F0A53A]" />
+              Chercher d’autres spots
             </button>
           </div>
+        </div>
 
+        {discoveryPicks.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {discoveryPicks.map(({ spot, recommendation }) => {
               const isChosen = favoriteSpotIds.includes(spot.id);
+              const dist = userLocation
+                ? haversineKm(userLocation.lat, userLocation.lng, spot.lat, spot.lng)
+                : null;
               return (
                 <div
                   key={spot.id}
@@ -695,7 +766,14 @@ export function DashboardView({
                   <div>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="text-[11px] text-[#8AA6B7]">{spot.region}</div>
+                        <div className="text-[11px] text-[#8AA6B7] flex items-center gap-1.5">
+                          <span>{spot.region}</span>
+                          {dist !== null && (
+                            <span className="font-mono tabular-nums text-[#4AE8D1]">
+                              · {dist} km
+                            </span>
+                          )}
+                        </div>
                         <div className="font-display text-xl font-bold tracking-tight text-[#F8FBFE] truncate">
                           {spot.town} — {spot.name}
                         </div>
@@ -733,8 +811,23 @@ export function DashboardView({
               );
             })}
           </div>
-        </section>
-      )}
+        ) : (
+          <div className="surf-card rounded-xl p-5 flex items-center justify-between gap-4 flex-wrap text-xs text-[#94ACB9]">
+            <span>
+              {userLocation
+                ? `Pas d’autre spot hors favoris en feu vert à moins de 100 km de ${userLocation.label}.`
+                : 'Utilisez le menu de recherche pour explorer les conditions sur toute la côte.'}
+            </span>
+            <button
+              type="button"
+              onClick={onOpenOtherSpotsSearch}
+              className="text-xs font-semibold text-[#F7C266] hover:underline whitespace-nowrap shrink-0"
+            >
+              Rechercher sur les {allSpots.length} spots →
+            </button>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

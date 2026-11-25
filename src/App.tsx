@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
 import { AnimatePresence, motion } from 'motion/react';
-import { Bell, Compass, RefreshCw, UserRound, Users, Waves } from 'lucide-react';
+import { Bell, LocateFixed, RefreshCw, Search, UserRound, Users, Waves } from 'lucide-react';
 import { AddSpotModal } from './components/AddSpotModal';
 import { CrewView } from './components/CrewView';
 import { DashboardView } from './components/DashboardView';
 import { MorningAlertModal } from './components/MorningAlertModal';
+import { OtherSpotsSearchModal } from './components/OtherSpotsSearchModal';
 import { SpotDetailPanel } from './components/SpotDetailPanel';
 import { SpotsCatalogView } from './components/SpotsCatalogView';
 import { SurferProfileView } from './components/SurferProfileView';
@@ -41,6 +42,7 @@ import {
 import {
   fetchAllSpotsForecasts,
   getLocalDateKey,
+  haversineKm,
   rankSpotsForDate,
 } from './lib/surfEngine';
 import type {
@@ -55,6 +57,7 @@ import type {
   SurfCrewRecord,
   SurferPreferences,
   SurfSpot,
+  UserLocation,
   UserProfile,
 } from './types/surf';
 import type { ParkingCheckSubmitPayload } from './components/ParkingCheckCard';
@@ -62,6 +65,8 @@ import type { ParkingCheckSubmitPayload } from './components/ParkingCheckCard';
 const LOCAL_FAV_KEY = 'houle_claire_guest_favorites_v2';
 const LOCAL_PREFS_KEY = 'houle_claire_guest_surfer_prefs_v2';
 const LOCAL_PARKING_KEY = 'ca_surf_local_parking_reports_v1';
+const LOCAL_LOCATION_KEY = 'ca_surf_user_location_v1';
+const NEARBY_RADIUS_KM = 100;
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -118,7 +123,27 @@ export default function App() {
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
   const [alertModalDate, setAlertModalDate] = useState<string | null>(null);
   const [addSpotOpen, setAddSpotOpen] = useState(false);
+  const [searchMenuOpen, setSearchMenuOpen] = useState(false);
   const [authError, setAuthError] = useState('');
+
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_LOCATION_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as UserLocation;
+        if (typeof parsed.lat === 'number' && typeof parsed.lng === 'number') {
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'locating' | 'granted' | 'denied' | 'error'>(
+    () => (userLocation?.source === 'gps' ? 'granted' : 'idle')
+  );
+  const [geoError, setGeoError] = useState('');
 
   const lastTriggeredAlertKeyRef = useRef<string>('');
 
@@ -177,6 +202,91 @@ export default function App() {
     }
     return crews[0];
   }, [crews, profile?.activeCrewId]);
+
+  const saveLocation = useCallback((loc: UserLocation) => {
+    setUserLocation(loc);
+    setGeoError('');
+    try {
+      localStorage.setItem(LOCAL_LOCATION_KEY, JSON.stringify(loc));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const requestGpsLocation = useCallback(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGeoStatus('error');
+      setGeoError(
+        'La géolocalisation GPS n’est pas disponible dans ce navigateur — choisissez une ville de départ ci-dessous.'
+      );
+      return;
+    }
+
+    setGeoStatus('locating');
+    setGeoError('');
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = Number(pos.coords.latitude.toFixed(4));
+        const lng = Number(pos.coords.longitude.toFixed(4));
+
+        // Build a friendly local label from nearest coastal spot if close
+        let nearestSpot: SurfSpot | null = null;
+        let nearestDist = Infinity;
+        for (const s of allSpots) {
+          const d = haversineKm(lat, lng, s.lat, s.lng);
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearestSpot = s;
+          }
+        }
+
+        const label =
+          nearestSpot && nearestDist <= 35
+            ? `Près de ${nearestSpot.town}`
+            : nearestSpot && nearestDist <= 100
+            ? `Secteur ${nearestSpot.region}`
+            : 'Ma position GPS';
+
+        setGeoStatus('granted');
+        saveLocation({ lat, lng, label, source: 'gps' });
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          setGeoStatus('denied');
+          setGeoError(
+            'Accès GPS refusé ou bloqué par le navigateur. Sélectionnez votre ville de départ ci-dessous pour filtrer à 100 km.'
+          );
+        } else {
+          setGeoStatus('error');
+          setGeoError(
+            'Impossible de capter le signal GPS pour le moment. Vous pouvez choisir votre ville de départ ci-dessous.'
+          );
+        }
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+    );
+  }, [allSpots, saveLocation]);
+
+  // Auto-acquire GPS silently on first load if permission was already granted
+  useEffect(() => {
+    if (userLocation) return;
+    if (typeof navigator === 'undefined' || !navigator.permissions?.query) return;
+    let cancelled = false;
+    void navigator.permissions
+      .query({ name: 'geolocation' as PermissionName })
+      .then((status) => {
+        if (!cancelled && status.state === 'granted') {
+          requestGpsLocation();
+        }
+      })
+      .catch(() => {
+        // ignore permissions API quirks
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userLocation, requestGpsLocation]);
 
   // 1. Firebase Auth
   useEffect(() => {
@@ -518,7 +628,7 @@ export default function App() {
 
   const navItems: Array<{ id: ActiveTab; label: string; shortLabel: string }> = [
     { id: 'session', label: 'Session du jour', shortLabel: 'Session' },
-    { id: 'spots', label: 'Spots API', shortLabel: 'Spots' },
+    { id: 'spots', label: `Autour (<${NEARBY_RADIUS_KM} km)`, shortLabel: '<100 km' },
     { id: 'crew', label: 'Groupe d’amis', shortLabel: 'Groupe' },
     { id: 'profile', label: 'Mon profil', shortLabel: 'Profil' },
   ];
@@ -535,7 +645,7 @@ export default function App() {
     <div className="min-h-screen text-[#F3F7FA] flex flex-col pb-20 md:pb-0">
       {/* Strict 3-Zone Top Navigation Bar */}
       <header className="sticky top-0 z-30 bg-[#060D13]/80 backdrop-blur-xl border-b border-white/10 shadow-[0_8px_30px_-18px_rgba(0,0,0,0.9)]">
-        <div className="max-w-[1240px] mx-auto h-16 px-4 sm:px-8 flex items-center justify-between gap-8">
+        <div className="max-w-[1240px] mx-auto h-16 px-4 sm:px-8 flex items-center justify-between gap-4 sm:gap-8">
           {/* Zone 1: Single-line Brand Wordmark */}
           <button
             type="button"
@@ -574,12 +684,20 @@ export default function App() {
             })}
           </nav>
 
-          {/* Zone 3: 1 Primary Action */}
-          <div className="flex items-center shrink-0">
+          {/* Zone 3: Dedicated Other-Spots Search Menu + Morning Alert Action */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setSearchMenuOpen(true)}
+              className="surf-btn-glass inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 text-xs font-medium text-[#F3F7FA] rounded-xl whitespace-nowrap shrink-0"
+            >
+              <Search className="w-3.5 h-3.5 text-[#2DD4BF]" />
+              <span className="hidden sm:inline">Autres spots</span>
+            </button>
             <button
               type="button"
               onClick={handleTriggerTestAlert}
-              className="surf-btn-primary inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl whitespace-nowrap shrink-0"
+              className="surf-btn-primary inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 text-xs font-semibold rounded-xl whitespace-nowrap shrink-0"
             >
               <Bell className="w-3.5 h-3.5" />
               Alerte {surferPrefs.alertTime.replace(':', 'h')}
@@ -633,6 +751,10 @@ export default function App() {
                 loadingForecasts={loadingForecasts}
                 surferPrefs={surferPrefs}
                 parkingReports={effectiveParkingReports}
+                userLocation={userLocation}
+                geoStatus={geoStatus}
+                onRequestGps={requestGpsLocation}
+                onOpenOtherSpotsSearch={() => setSearchMenuOpen(true)}
                 onSelectSpot={(id) => setSelectedSpotId(id)}
                 onOpenAlertPreview={(dk) => setAlertModalDate(dk)}
                 onNavigateTab={(tab) => navigateTo(tab)}
@@ -645,7 +767,14 @@ export default function App() {
                 forecasts={forecasts}
                 loadingForecasts={loadingForecasts}
                 surferPrefs={surferPrefs}
+                userLocation={userLocation}
+                geoStatus={geoStatus}
+                geoError={geoError}
+                radiusKm={NEARBY_RADIUS_KM}
                 isSignedIn={Boolean(user)}
+                onRequestGps={requestGpsLocation}
+                onSetManualLocation={saveLocation}
+                onOpenOtherSpotsSearch={() => setSearchMenuOpen(true)}
                 onSelectSpot={(id) => setSelectedSpotId(id)}
                 onToggleFavorite={(id) => void handleToggleFavorite(id)}
                 onOpenAddSpot={() => setAddSpotOpen(true)}
@@ -735,7 +864,7 @@ export default function App() {
             item.id === 'session'
               ? Waves
               : item.id === 'spots'
-              ? Compass
+              ? LocateFixed
               : item.id === 'crew'
               ? Users
               : UserRound;
@@ -756,6 +885,22 @@ export default function App() {
       </nav>
 
       {/* Modals */}
+      <OtherSpotsSearchModal
+        open={searchMenuOpen}
+        onClose={() => setSearchMenuOpen(false)}
+        spots={allSpots}
+        favoriteSpotIds={favoriteSpotIds}
+        forecasts={forecasts}
+        surferPrefs={surferPrefs}
+        userLocation={userLocation}
+        radiusKm={NEARBY_RADIUS_KM}
+        isSignedIn={Boolean(user)}
+        onSelectSpot={(id) => setSelectedSpotId(id)}
+        onToggleFavorite={(id) => void handleToggleFavorite(id)}
+        onOpenAddSpot={() => setAddSpotOpen(true)}
+        onRequireAuth={() => void handleSignIn()}
+      />
+
       <MorningAlertModal
         open={Boolean(alertModalDate)}
         onClose={() => setAlertModalDate(null)}

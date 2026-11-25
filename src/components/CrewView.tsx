@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarCheck, Check, Copy, LogOut, Plus, UserPlus, Users } from 'lucide-react';
-import { IMG_PARKING_VAN } from '../data/spots';
 import {
   degreesToCompass,
   formatFrenchDateLabel,
@@ -22,7 +21,6 @@ import {
   VERDICT_META,
   type ParkingCheckSubmitPayload,
 } from './ParkingCheckCard';
-import { SpotImage } from './SpotImage';
 
 interface CrewViewProps {
   profile: UserProfile | null;
@@ -184,37 +182,26 @@ export function CrewView({
 
   if (!isSignedIn) {
     return (
-      <div className="surf-card rounded-3xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 items-stretch">
-        <div className="lg:col-span-5 relative min-h-[240px]">
-          <SpotImage
-            src={IMG_PARKING_VAN}
-            alt="Surfeurs autour d’un van face aux vagues bretonnes au lever du jour"
-            title="Surf Crew"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#060E15]/90 via-[#060E15]/25 to-transparent" />
+      <div className="surf-card-amber rounded-3xl p-8 sm:p-11 max-w-2xl">
+        <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#F7C266]">
+          <Users className="w-4 h-4" />
+          Quartier général du groupe
         </div>
-        <div className="lg:col-span-7 p-8 sm:p-10 flex flex-col justify-center">
-          <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#F7C266]">
-            <Users className="w-4 h-4" />
-            Quartier général du groupe
-          </div>
-          <h1 className="mt-3 font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-[#F8FBFE] leading-[0.98]">
-            Calez vos sessions & vos Checks Parking entre potes
-          </h1>
-          <p className="mt-3 text-sm text-[#A9C0CE] leading-relaxed max-w-xl">
-            Connectez-vous avec Google pour créer un groupe d’amis, balancer vos Checks Parking en
-            direct depuis la dune et croiser les spots favoris de toute la bande.
-          </p>
-          <div className="mt-7">
-            <button
-              type="button"
-              onClick={onSignIn}
-              className="surf-btn-primary px-6 py-3 text-sm font-semibold rounded-xl whitespace-nowrap shrink-0"
-            >
-              Se connecter avec Google
-            </button>
-          </div>
+        <h1 className="mt-3 font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-[#F8FBFE] leading-[0.98]">
+          Calez vos sessions & vos Checks Parking entre potes
+        </h1>
+        <p className="mt-3 text-sm text-[#A9C0CE] leading-relaxed max-w-xl">
+          Connectez-vous avec Google pour créer un groupe d’amis, balancer vos Checks Parking en
+          direct depuis la dune et croiser les spots favoris de toute la bande.
+        </p>
+        <div className="mt-7">
+          <button
+            type="button"
+            onClick={onSignIn}
+            className="surf-btn-primary px-6 py-3 text-sm font-semibold rounded-xl whitespace-nowrap shrink-0"
+          >
+            Se connecter avec Google
+          </button>
         </div>
       </div>
     );

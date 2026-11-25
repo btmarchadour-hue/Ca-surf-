@@ -1,15 +1,69 @@
 import type { BoardType, SurferLevel, SurfSpot } from '../types/surf';
 
-export const HERO_DAWN_IMAGE = '/src/assets/images/coastal_dawn_hero_1795599318269.jpg';
-export const IMG_CROZON_DAWN = '/src/assets/images/crozon_palue_dawn_lineup_1795604478686.jpg';
-export const IMG_PARKING_VAN = '/src/assets/images/parking_check_van_dunes_1795604479580.jpg';
-export const IMG_BRETON_REEF = '/src/assets/images/breton_reef_spray_barrel_1795604480436.jpg';
-export const IMG_DAWN_LINEUP = '/src/assets/images/surf_dawn_lineup_1795600454758.jpg';
-export const IMG_QUIVER_BOARDS = '/src/assets/images/surf_quiver_boards_1795600454149.jpg';
-export const IMG_ATLANTIC_BARREL = '/src/assets/images/surf_atlantic_barrel_1795600454402.jpg';
-export const IMG_BEACH_BREAK = '/src/assets/images/spot_beach_break_1795599320432.jpg';
-export const IMG_REEF_POINT = '/src/assets/images/spot_reef_point_1795599320581.jpg';
-export const IMG_BRITTANY_COVE = '/src/assets/images/spot_brittany_cove_1795599321305.jpg';
+/**
+ * Photos réelles vérifiées (Wikimedia Commons) prises directement sur chaque spot.
+ * Si un spot n'a pas de photo réelle vérifiée, aucune photo générée ou générique n'est inventée :
+ * l'interface affiche une carte marine d'orientation basée sur ses vraies coordonnées GPS et son angle offshore.
+ */
+export const VERIFIED_REAL_SPOT_PHOTOS: Record<string, string> = {
+  // Presqu'île de Crozon
+  'crozon-la-palue':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/061_Crozon_Partie_sud_de_la_plage_de_la_Palue_vue_depuis_Br%C3%A9golou.JPG/1280px-061_Crozon_Partie_sud_de_la_plage_de_la_Palue_vue_depuis_Br%C3%A9golou.JPG',
+  'crozon-lostmarch':
+    'https://upload.wikimedia.org/wikipedia/commons/7/78/Breizh_29_-_Kraozon_-_beg_lostmarc%27h_05.jpg',
+  'crozon-goulien':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Plage_de_Goulien_%28France%29.JPG/1280px-Plage_de_Goulien_%28France%29.JPG',
+  'crozon-kersiguenou':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Plage_de_Kersigu%C3%A9nou_-_Crozon%2C_Finist%C3%A8re%2C_France_-_August_17%2C_2018_02.jpg/1280px-Plage_de_Kersigu%C3%A9nou_-_Crozon%2C_Finist%C3%A8re%2C_France_-_August_17%2C_2018_02.jpg',
+  'camaret-pen-hat':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Anse_de_Pen_Hat_-_panoramio.jpg/1280px-Anse_de_Pen_Hat_-_panoramio.jpg',
+  'crozon-aber':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/074_Crozon_L%27Aber.JPG/1280px-074_Crozon_L%27Aber.JPG',
+  'crozon-morgat':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Morgat_8008.jpg/1280px-Morgat_8008.jpg',
+  'telgruc-trez-bellec':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Plage_de_Trez-Bellec_bei_Telgruc-sur-Mer_-_panoramio.jpg/1280px-Plage_de_Trez-Bellec_bei_Telgruc-sur-Mer_-_panoramio.jpg',
+
+  // Finistère Sud & Nord
+  'saint-nic-pentrez':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Saint-Nic_Plage_de_Pentrez_156.jpg/1280px-Saint-Nic_Plage_de_Pentrez_156.jpg',
+  'plogoff-trepasses':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Baie_des_tr%C3%A9pass%C3%A9s%2C_pointe_du_Raz.jpg/1280px-Baie_des_tr%C3%A9pass%C3%A9s%2C_pointe_du_Raz.jpg',
+  'plouhinec-gwendrez':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/546_Plouhinec_Gwendrez.JPG/1280px-546_Plouhinec_Gwendrez.JPG',
+  'la-torche':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Pointe_de_la_Torche%2C_Finist%C3%A8re_2.jpg/1280px-Pointe_de_la_Torche%2C_Finist%C3%A8re_2.jpg',
+  'plouzane-petit-minou':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Phare_du_Petit_Minou_Plouzan%C3%A9.jpg/1280px-Phare_du_Petit_Minou_Plouzan%C3%A9.jpg',
+  'locmaria-porsmilin':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/Porsmilin-Rade-de-Brest.jpg/1280px-Porsmilin-Rade-de-Brest.jpg',
+
+  // Landes, Pays Basque, Gironde, Charentes & Ibérique
+  'hossegor-graviere':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/PlageHossegore.jpg/1280px-PlageHossegore.jpg',
+  'hossegor-la-nord':
+    'https://upload.wikimedia.org/wikipedia/commons/2/2a/Hossegor_Surfboat_%C3%A0_la_%22Nord%22.jpg',
+  'seignosse-estagnots':
+    'https://upload.wikimedia.org/wikipedia/commons/7/7b/Plage_des_Estagnots.jpg',
+  'capbreton-la-piste':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Blockhauss_%28Capbreton%29.jpg/1280px-Blockhauss_%28Capbreton%29.jpg',
+  'biarritz-grande-plage':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Biarritz-Plage.JPG/1280px-Biarritz-Plage.JPG',
+  'guethary-parlementia':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Panoramique_depuis_les_rochers_de_Parlementia_du_Samedi_2_Mars_2007.jpg/1280px-Panoramique_depuis_les_rochers_de_Parlementia_du_Samedi_2_Mars_2007.jpg',
+  'st-jean-lafitenia':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Lafitenia.jpg/1280px-Lafitenia.jpg',
+  'hendaye-plage':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Hendaye_-_52496904880.jpg/1280px-Hendaye_-_52496904880.jpg',
+  'lacanau-centrale':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Lacanau_Oc%C3%A9an_autour_de_la_plage_centrale_%285%29.jpg/1280px-Lacanau_Oc%C3%A9an_autour_de_la_plage_centrale_%285%29.jpg',
+  'oleron-vert-bois':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Le_blockhaus_de_Vert_Bois.JPG/1280px-Le_blockhaus_de_Vert_Bois.JPG',
+  'zarautz-plage':
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d8/Typical_Zarautz..JPG/1280px-Typical_Zarautz..JPG',
+  'mundaka-barre':
+    'https://upload.wikimedia.org/wikipedia/commons/7/72/Mundaka_eta_Ogono.jpg',
+};
 
 export const DEFAULT_FAVORITE_SPOT_IDS = [
   'crozon-la-palue',
@@ -86,7 +140,7 @@ export function getSmartWaveDefaults(level: SurferLevel, board: BoardType): {
  * Exhaustive catalog of 54 real surf spots verified against Open-Meteo Marine & Weather Free APIs
  * With deep local coverage of Presqu'île de Crozon (10 spots), Finistère Sud (10 spots), and Finistère Nord (6 spots).
  */
-export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
+const RAW_BUILTIN_SURF_SPOTS: Array<Omit<SurfSpot, 'imageUrl'>> = [
   // ===========================================================================
   // PRESQU'ÎLE DE CROZON (10 SPOTS — toutes orientations de vent & replis)
   // ===========================================================================
@@ -107,7 +161,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Aimant à houle mythique de Crozon, pics puissants et sauvages',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_CROZON_DAWN,
   },
   {
     id: 'crozon-lostmarch',
@@ -126,7 +179,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Prolongement nord de La Palue, vagues creuses au pied du cap',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BRETON_REEF,
   },
   {
     id: 'crozon-goulien',
@@ -145,7 +197,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Grande anse polyvalente plus douce quand La Palue sature',
     idealTide: 'Toutes marées',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_PARKING_VAN,
   },
   {
     id: 'crozon-kersiguenou',
@@ -164,7 +215,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Secteur nord de l’anse de Dinan, pics mieux formés et réguliers',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: HERO_DAWN_IMAGE,
   },
   {
     id: 'camaret-pen-hat',
@@ -183,7 +233,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Beach break très puissant face au large, courants marqués',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_ATLANTIC_BARREL,
   },
   {
     id: 'camaret-veryach',
@@ -202,7 +251,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Crique sauvage abritée des vents de Nord-Est sous les falaises',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BRITTANY_COVE,
   },
   {
     id: 'crozon-aber',
@@ -221,7 +269,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Repli orienté Sud en baie de Douarnenez, top par vent de Nord',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_REEF_POINT,
   },
   {
     id: 'crozon-morgat',
@@ -240,7 +287,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Repli ultime de la presqu’île lors des tempêtes d’Ouest/SO',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: HERO_DAWN_IMAGE,
   },
   {
     id: 'crozon-postolonnec',
@@ -259,7 +305,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Droite de repli propre en baie de Douarnenez par grosse houle',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_REEF_POINT,
   },
   {
     id: 'telgruc-trez-bellec',
@@ -278,7 +323,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Grande plage douce à l’entrée de Crozon, parfaite pour progresser',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BEACH_BREAK,
   },
 
   // ===========================================================================
@@ -301,7 +345,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Immense plage de sable fin, vagues accessibles en baie de Douarnenez',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: HERO_DAWN_IMAGE,
   },
   {
     id: 'plogoff-trepasses',
@@ -320,7 +363,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Spot spectaculaire entre Pointe du Raz et Pointe du Van',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BRITTANY_COVE,
   },
   {
     id: 'plouhinec-mesperleuc',
@@ -339,7 +381,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Dalles rocheuses et pics puissants du Cap Sizun par houle de SO',
     idealTide: 'Mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_REEF_POINT,
   },
   {
     id: 'plouhinec-gwendrez',
@@ -358,7 +399,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Beach break régulier et convivial à la porte de la baie d’Audierne',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BRITTANY_COVE,
   },
   {
     id: 'pouldreuzic-penhors',
@@ -377,7 +417,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Grande plage exposée de la baie d’Audierne, constance remarquable',
     idealTide: 'Toutes marées',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BEACH_BREAK,
   },
   {
     id: 'trolimon-tronoen',
@@ -396,7 +435,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Bancs sauvages au nord de La Torche, pics creux et moins de monde',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_ATLANTIC_BARREL,
   },
   {
     id: 'la-torche',
@@ -415,7 +453,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Capteur de houle légendaire du Pays Bigouden, droite & beach break',
     idealTide: 'Toutes marées',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BRITTANY_COVE,
   },
   {
     id: 'penmarch-pors-carn',
@@ -434,7 +471,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Côté sud de la pointe de La Torche, plus abrité et idéal longboard',
     idealTide: 'Toutes marées',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: HERO_DAWN_IMAGE,
   },
   {
     id: 'penmarch-le-steir',
@@ -453,7 +489,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Repli orienté Sud par grosses houles d’hiver et vent de Nord',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BEACH_BREAK,
   },
   {
     id: 'clohars-bellangenet',
@@ -472,7 +507,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Plage orientée Sud aux portes du Morbihan, très lisible',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BRITTANY_COVE,
   },
 
   // ===========================================================================
@@ -495,7 +529,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Home spot emblématique de Brest à l’entrée du goulet, offshore par Nord',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_REEF_POINT,
   },
   {
     id: 'locmaria-porsmilin',
@@ -514,7 +547,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Anse abritée près de Brest, parfaite en repli par grosse houle',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BRITTANY_COVE,
   },
   {
     id: 'conquet-blancs-sablons',
@@ -533,7 +565,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Grande plage sauvage du Pays d’Iroise très réceptive aux houles NO',
     idealTide: 'Toutes marées',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: HERO_DAWN_IMAGE,
   },
   {
     id: 'lampaul-treompan',
@@ -552,7 +583,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Dunes du Bas-Léon, pics propres sur houle de Nord-Ouest',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BRITTANY_COVE,
   },
   {
     id: 'goulven-keremma',
@@ -571,7 +601,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Immense plage sauvage du Léon, vagues douces par houle de NO',
     idealTide: 'Mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: HERO_DAWN_IMAGE,
   },
   {
     id: 'santec-le-dossen',
@@ -590,7 +619,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Spot phare de la côte nord du Finistère face à l’île de Sieck',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BRITTANY_COVE,
   },
 
   // ===========================================================================
@@ -613,7 +641,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Spot convivial du Morbihan, très lisible pour progresser',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BRITTANY_COVE,
   },
   {
     id: 'quiberon-port-blanc',
@@ -632,7 +659,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Crique sauvage de la presqu’île de Quiberon exposée Ouest',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BRITTANY_COVE,
   },
   {
     id: 'plouharnel-sainte-barbe',
@@ -651,7 +677,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Longue plage ouverte à l’entrée de Quiberon, constante et accessible',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: HERO_DAWN_IMAGE,
   },
   {
     id: 'frehel-anse-du-croc',
@@ -670,7 +695,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Spot majeur des Côtes-d’Armor près du Cap Fréhel sur houle de Nord',
     idealTide: 'Mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BRITTANY_COVE,
   },
 
   // ===========================================================================
@@ -693,7 +717,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Beach break creux et tubulaire de classe mondiale',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_ATLANTIC_BARREL,
   },
   {
     id: 'hossegor-la-nord',
@@ -712,7 +735,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Pic au large encaissant les grosses houles d’hiver',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_ATLANTIC_BARREL,
   },
   {
     id: 'seignosse-estagnots',
@@ -731,7 +753,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Bancs de sable puissants et réguliers face aux dunes',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BEACH_BREAK,
   },
   {
     id: 'capbreton-la-piste',
@@ -750,7 +771,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Droites et gauches rapides près des blockhaus',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BEACH_BREAK,
   },
   {
     id: 'mimizan-sud',
@@ -769,7 +789,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Longue plage ouverte accessible et constante',
     idealTide: 'Mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: HERO_DAWN_IMAGE,
   },
   {
     id: 'biscarrosse-nord',
@@ -788,7 +807,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Multiples pics de beach break landais bien exposés',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BEACH_BREAK,
   },
 
   // ===========================================================================
@@ -811,7 +829,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Beach break pêchu réputé pour ses gauches creuses',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_ATLANTIC_BARREL,
   },
   {
     id: 'biarritz-cote-des-basques',
@@ -830,7 +847,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Berceau du longboard, vagues douces et déroulantes',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_REEF_POINT,
   },
   {
     id: 'biarritz-grande-plage',
@@ -849,7 +865,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Beach break polyvalent au cœur de Biarritz',
     idealTide: 'Toutes marées',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BEACH_BREAK,
   },
   {
     id: 'bidart-centre',
@@ -868,7 +883,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Pics variés sous les falaises basques',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_REEF_POINT,
   },
   {
     id: 'guethary-parlementia',
@@ -887,7 +901,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Longue droite de reef au large pour belles houles',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_REEF_POINT,
   },
   {
     id: 'st-jean-lafitenia',
@@ -906,7 +919,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Point break droite mécanique et rapide sur roche',
     idealTide: 'Mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_REEF_POINT,
   },
   {
     id: 'hendaye-plage',
@@ -925,7 +937,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Meilleur spot de repli et progression quand ça sature ailleurs',
     idealTide: 'Toutes marées',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: HERO_DAWN_IMAGE,
   },
 
   // ===========================================================================
@@ -948,7 +959,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Beach break consistant et dynamique toute l’année',
     idealTide: 'Mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BEACH_BREAK,
   },
   {
     id: 'le-porge-ocean',
@@ -967,7 +977,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Grand espace sauvage et pics moins fréquentés',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: HERO_DAWN_IMAGE,
   },
   {
     id: 'carcans-plage',
@@ -986,7 +995,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Beach break médocain sauvage au nord de Lacanau',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BEACH_BREAK,
   },
 
   // ===========================================================================
@@ -1009,7 +1017,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Plage conviviale bordée de pins, vagues accessibles',
     idealTide: 'Mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BEACH_BREAK,
   },
   {
     id: 'ile-re-grenettes',
@@ -1028,7 +1035,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Dalle rocheuse offrant de belles droites propres',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_REEF_POINT,
   },
   {
     id: 'sables-olonne-tanchet',
@@ -1047,7 +1053,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Baie accessible et régulière en Vendée',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: HERO_DAWN_IMAGE,
   },
   {
     id: 'longeville-bud-bud',
@@ -1066,7 +1071,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Beach break vendéen réputé pour ses sections creuses',
     idealTide: 'Marée basse à mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_ATLANTIC_BARREL,
   },
 
   // ===========================================================================
@@ -1089,7 +1093,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Meilleur capteur de houle de la Manche en Cotentin',
     idealTide: 'Mi-marée à haute',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_BRITTANY_COVE,
   },
   {
     id: 'le-rozel-cotentin',
@@ -1108,7 +1111,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Anse abritée au sud du cap du Rozel, vagues douces',
     idealTide: 'Mi-marée',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: HERO_DAWN_IMAGE,
   },
 
   // ===========================================================================
@@ -1131,7 +1133,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Longue baie basque espagnole ultra-constante',
     idealTide: 'Toutes marées',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: HERO_DAWN_IMAGE,
   },
   {
     id: 'mundaka-barre',
@@ -1150,7 +1151,6 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Gauche tubulaire mythique d’estuaire sur forte houle NO',
     idealTide: 'Marée basse',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_ATLANTIC_BARREL,
   },
   {
     id: 'ericeira-ribeira',
@@ -1169,9 +1169,107 @@ export const BUILTIN_SURF_SPOTS: SurfSpot[] = [
     waveCharacter: 'Droite de reef longue et parfaitement lisible au Portugal',
     idealTide: 'Toutes marées',
     apiProvider: 'Open-Meteo Marine',
-    imageUrl: IMG_REEF_POINT,
   },
 ];
+
+/**
+ * Coastal bathymetry & headland shadowing metadata for every built-in spot.
+ * Open-Meteo Marine returns coarse offshore grid wave height (~5-10 km resolution) that cannot
+ * see local capes (e.g. Cap de la Chèvre blocking Morgat from W/WNW swells).
+ * - swellExposure: fraction of direct swell energy reaching the break (0.24 = deeply sheltered bay, 1.0 = open ocean)
+ * - swellWindowHalfAngle: degrees on each side of idealSwellDeg before headland shadowing kicks in
+ * - isShelterSpot: true for storm-repli bays that stay flat on normal Atlantic swells
+ */
+export const COASTAL_EXPOSURE_BY_SPOT: Record<
+  string,
+  { swellExposure: number; swellWindowHalfAngle: number; isShelterSpot?: boolean }
+> = {
+  // Presqu'île de Crozon
+  'crozon-la-palue': { swellExposure: 1.0, swellWindowHalfAngle: 75 },
+  'crozon-lostmarch': { swellExposure: 1.0, swellWindowHalfAngle: 75 },
+  'crozon-goulien': { swellExposure: 0.78, swellWindowHalfAngle: 62 },
+  'crozon-kersiguenou': { swellExposure: 0.82, swellWindowHalfAngle: 65 },
+  'camaret-pen-hat': { swellExposure: 1.0, swellWindowHalfAngle: 75 },
+  'camaret-veryach': { swellExposure: 0.78, swellWindowHalfAngle: 55 },
+  'crozon-aber': { swellExposure: 0.46, swellWindowHalfAngle: 42, isShelterSpot: true },
+  'crozon-morgat': { swellExposure: 0.24, swellWindowHalfAngle: 32, isShelterSpot: true },
+  'crozon-postolonnec': { swellExposure: 0.38, swellWindowHalfAngle: 38, isShelterSpot: true },
+  'telgruc-trez-bellec': { swellExposure: 0.62, swellWindowHalfAngle: 55 },
+
+  // Finistère Sud
+  'saint-nic-pentrez': { swellExposure: 0.66, swellWindowHalfAngle: 58 },
+  'plogoff-trepasses': { swellExposure: 0.96, swellWindowHalfAngle: 72 },
+  'plouhinec-mesperleuc': { swellExposure: 0.88, swellWindowHalfAngle: 62 },
+  'plouhinec-gwendrez': { swellExposure: 0.84, swellWindowHalfAngle: 60 },
+  'pouldreuzic-penhors': { swellExposure: 0.94, swellWindowHalfAngle: 70 },
+  'trolimon-tronoen': { swellExposure: 1.0, swellWindowHalfAngle: 75 },
+  'la-torche': { swellExposure: 1.0, swellWindowHalfAngle: 75 },
+  'penmarch-pors-carn': { swellExposure: 0.82, swellWindowHalfAngle: 65 },
+  'penmarch-le-steir': { swellExposure: 0.4, swellWindowHalfAngle: 40, isShelterSpot: true },
+  'clohars-bellangenet': { swellExposure: 0.72, swellWindowHalfAngle: 58 },
+
+  // Finistère Nord
+  'plouzane-petit-minou': { swellExposure: 0.56, swellWindowHalfAngle: 45, isShelterSpot: true },
+  'locmaria-porsmilin': { swellExposure: 0.42, swellWindowHalfAngle: 40, isShelterSpot: true },
+  'conquet-blancs-sablons': { swellExposure: 0.88, swellWindowHalfAngle: 65 },
+  'lampaul-treompan': { swellExposure: 0.72, swellWindowHalfAngle: 55 },
+  'goulven-keremma': { swellExposure: 0.62, swellWindowHalfAngle: 50 },
+  'santec-le-dossen': { swellExposure: 0.78, swellWindowHalfAngle: 58 },
+
+  // Morbihan & Bretagne
+  'guidel-la-falaise': { swellExposure: 0.78, swellWindowHalfAngle: 60 },
+  'quiberon-port-blanc': { swellExposure: 0.96, swellWindowHalfAngle: 72 },
+  'plouharnel-sainte-barbe': { swellExposure: 0.85, swellWindowHalfAngle: 65 },
+  'frehel-anse-du-croc': { swellExposure: 0.64, swellWindowHalfAngle: 48 },
+
+  // Landes
+  'hossegor-graviere': { swellExposure: 1.0, swellWindowHalfAngle: 75 },
+  'hossegor-la-nord': { swellExposure: 1.0, swellWindowHalfAngle: 78 },
+  'seignosse-estagnots': { swellExposure: 0.98, swellWindowHalfAngle: 75 },
+  'capbreton-la-piste': { swellExposure: 0.96, swellWindowHalfAngle: 74 },
+  'mimizan-sud': { swellExposure: 0.95, swellWindowHalfAngle: 75 },
+  'biscarrosse-nord': { swellExposure: 0.96, swellWindowHalfAngle: 75 },
+
+  // Pays Basque
+  'anglet-cavaliers': { swellExposure: 0.95, swellWindowHalfAngle: 72 },
+  'biarritz-cote-des-basques': { swellExposure: 0.78, swellWindowHalfAngle: 60 },
+  'biarritz-grande-plage': { swellExposure: 0.86, swellWindowHalfAngle: 65 },
+  'bidart-centre': { swellExposure: 0.88, swellWindowHalfAngle: 66 },
+  'guethary-parlementia': { swellExposure: 0.92, swellWindowHalfAngle: 65 },
+  'st-jean-lafitenia': { swellExposure: 0.82, swellWindowHalfAngle: 58 },
+  'hendaye-plage': { swellExposure: 0.58, swellWindowHalfAngle: 48, isShelterSpot: true },
+
+  // Gironde
+  'lacanau-centrale': { swellExposure: 0.98, swellWindowHalfAngle: 75 },
+  'le-porge-ocean': { swellExposure: 0.98, swellWindowHalfAngle: 75 },
+  'carcans-plage': { swellExposure: 0.98, swellWindowHalfAngle: 75 },
+
+  // Vendée & Charentes
+  'oleron-vert-bois': { swellExposure: 0.8, swellWindowHalfAngle: 62 },
+  'ile-re-grenettes': { swellExposure: 0.82, swellWindowHalfAngle: 60 },
+  'sables-olonne-tanchet': { swellExposure: 0.76, swellWindowHalfAngle: 58 },
+  'longeville-bud-bud': { swellExposure: 0.88, swellWindowHalfAngle: 65 },
+
+  // Normandie
+  'siouville-hague': { swellExposure: 0.8, swellWindowHalfAngle: 60 },
+  'le-rozel-cotentin': { swellExposure: 0.64, swellWindowHalfAngle: 52, isShelterSpot: true },
+
+  // Roadtrip Ibérique
+  'zarautz-plage': { swellExposure: 0.85, swellWindowHalfAngle: 62 },
+  'mundaka-barre': { swellExposure: 0.68, swellWindowHalfAngle: 45 },
+  'ericeira-ribeira': { swellExposure: 0.92, swellWindowHalfAngle: 68 },
+};
+
+export const BUILTIN_SURF_SPOTS: SurfSpot[] = RAW_BUILTIN_SURF_SPOTS.map((spot) => {
+  const coastal = COASTAL_EXPOSURE_BY_SPOT[spot.id];
+  return {
+    ...spot,
+    swellExposure: coastal?.swellExposure ?? 0.9,
+    swellWindowHalfAngle: coastal?.swellWindowHalfAngle ?? 65,
+    isShelterSpot: coastal?.isShelterSpot ?? false,
+    imageUrl: VERIFIED_REAL_SPOT_PHOTOS[spot.id] ?? '',
+  };
+});
 
 export const SURF_REGIONS = [
   'Toutes',
@@ -1187,19 +1285,7 @@ export const SURF_REGIONS = [
   'Roadtrip Ibérique',
 ] as const;
 
-export function getImageForBreakType(breakType: SurfSpot['breakType'], region: string): string {
-  const r = region.toLowerCase();
-  if (
-    r.includes('crozon') ||
-    r.includes('finistère') ||
-    r.includes('bretagne') ||
-    r.includes('morbihan') ||
-    r.includes('normandie')
-  ) {
-    return IMG_BRITTANY_COVE;
-  }
-  if (breakType === 'reef' || breakType === 'point') {
-    return IMG_REEF_POINT;
-  }
-  return IMG_BEACH_BREAK;
+export function getImageForBreakType(_breakType: SurfSpot['breakType'], _region: string): string {
+  // Ne jamais inventer de photo pour un spot sans cliché réel vérifié
+  return '';
 }

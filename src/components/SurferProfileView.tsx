@@ -12,7 +12,6 @@ import {
 import {
   BOARD_TYPE_LABELS,
   getSmartWaveDefaults,
-  IMG_QUIVER_BOARDS,
   SURF_REGIONS,
   SURFER_LEVEL_LABELS,
 } from '../data/spots';
@@ -30,7 +29,6 @@ import type {
   SurferPreferences,
   SurfSpot,
 } from '../types/surf';
-import { SpotImage } from './SpotImage';
 
 interface SurferProfileViewProps {
   prefs: SurferPreferences;
@@ -156,26 +154,23 @@ export function SurferProfileView({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
-      {/* Photographic Quiver Hero Header */}
+      {/* Coastal Surfer Identity Header */}
       <section className="surf-card rounded-3xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 items-stretch">
-        <div className="lg:col-span-5 relative min-h-[240px]">
-          <SpotImage
-            src={IMG_QUIVER_BOARDS}
-            alt="Planches de surf devant les dunes atlantiques au lever du jour"
-            title="Mon Quiver"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#060E15]/92 via-[#060E15]/25 to-transparent" />
-          <div className="absolute bottom-5 left-5 right-5 text-white">
-            <div className="text-xs text-[#F7C266] font-semibold">
-              Profil Surfeur · Quiver actif
-            </div>
-            <h1 className="mt-1 font-display text-4xl sm:text-5xl font-extrabold tracking-tight leading-none">
+        <div className="lg:col-span-5 p-6 sm:p-8 bg-gradient-to-br from-[#133244] via-[#0B1D29] to-[#07131C] border-b lg:border-b-0 lg:border-r border-white/10 flex flex-col justify-between gap-4">
+          <div className="text-xs text-[#F7C266] font-semibold">
+            Profil Surfeur · Quiver actif
+          </div>
+          <div>
+            <h1 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-[#F8FBFE] leading-none">
               {draft.displayName || 'Surfeur'}
             </h1>
-            <div className="mt-1.5 text-xs text-white/85">
+            <div className="mt-2.5 text-sm text-[#CBD8E1]">
               {SURFER_LEVEL_LABELS[draft.surferLevel].label} ·{' '}
-              {BOARD_TYPE_LABELS[draft.boardType].label} · {draftSpots.length} spots API
+              {BOARD_TYPE_LABELS[draft.boardType].label}
+            </div>
+            <div className="mt-1 font-mono tabular-nums text-xs text-[#4AE8D1]">
+              {draftSpots.length} spots API suivis · Plage {draft.minWaveHeight.toFixed(1).replace('.', ',')}–
+              {draft.maxWaveHeight.toFixed(1).replace('.', ',')} m
             </div>
           </div>
         </div>

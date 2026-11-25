@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Check, Copy, Eye, Send, Trash2 } from 'lucide-react';
-import { IMG_PARKING_VAN } from '../data/spots';
 import { formatReportAgeFr, windQualityLabelFr } from '../lib/surfEngine';
 import type {
   CrowdLevel,
@@ -9,7 +8,6 @@ import type {
   SurfSpot,
   WindQuality,
 } from '../types/surf';
-import { SpotImage } from './SpotImage';
 
 export const VERDICT_META: Record<
   ParkingVerdict,
@@ -157,38 +155,27 @@ export function ParkingCheckCard({
 
   return (
     <section className="surf-card rounded-3xl overflow-hidden">
-      {/* Atmospheric Dune Van Header Strip */}
-      <div className="relative h-28 sm:h-32 overflow-hidden">
-        <SpotImage
-          src={IMG_PARKING_VAN}
-          alt="Van de surf garé face aux dunes bretonnes au lever du jour"
-          title="Check Parking"
-          className="w-full h-full object-cover object-center"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#07111A]/95 via-[#07111A]/75 to-[#07111A]/35" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0C1B26] via-transparent to-transparent" />
-
-        <div className="relative z-10 h-full px-6 py-4 flex items-end justify-between gap-4 flex-wrap">
-          <div>
-            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#F7C266]">
-              <Eye className="w-3.5 h-3.5" />
-              Terrain &gt; Algo
-            </div>
-            <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-none mt-0.5">
-              Check Parking en direct
-            </h2>
+      {/* Crisp Coastal Header Band (no invented photo) */}
+      <div className="px-6 py-5 border-b border-white/10 bg-gradient-to-r from-[#F0A53A]/12 via-[#0C1C28]/60 to-transparent flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#F7C266]">
+            <Eye className="w-3.5 h-3.5" />
+            Terrain &gt; Algo
           </div>
-
-          {!hasActiveCrew && onNavigateCrew && (
-            <button
-              type="button"
-              onClick={onNavigateCrew}
-              className="surf-btn-glass px-3.5 py-1.5 text-xs font-semibold text-[#F7C266] rounded-lg whitespace-nowrap shrink-0"
-            >
-              {isSignedIn ? 'Synchroniser avec un groupe' : 'Connexion crew live'}
-            </button>
-          )}
+          <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-none mt-1">
+            Check Parking en direct
+          </h2>
         </div>
+
+        {!hasActiveCrew && onNavigateCrew && (
+          <button
+            type="button"
+            onClick={onNavigateCrew}
+            className="surf-btn-glass px-3.5 py-1.5 text-xs font-semibold text-[#F7C266] rounded-lg whitespace-nowrap shrink-0"
+          >
+            {isSignedIn ? 'Synchroniser avec un groupe' : 'Connexion crew live'}
+          </button>
+        )}
       </div>
 
       <div className="p-6 space-y-6">

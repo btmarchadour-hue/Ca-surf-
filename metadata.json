@@ -1,6 +1,6 @@
 {
   "name": "Houle Claire",
   "description": "Choix de spots de surf en temps réel avec prévisions houle et vent, favoris entre amis et alerte matinale sur le meilleur créneau.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
