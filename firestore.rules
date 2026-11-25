@@ -1,0 +1,715 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 0: Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // Global Primitives
+    // =========================================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidInviteCode(code) {
+      return code is string && code.size() >= 6 && code.size() <= 12 && code.matches('^[A-Z0-9]{6,12}$');
+    }
+
+    function isValidAlertTime(t) {
+      return t is string && t.size() == 5 && t.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+    }
+
+    function isValidDateKey(d) {
+      return d is string && d.size() == 10 && d.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function isValidSpotIdList(arr) {
+      return arr is list
+        && arr.size() <= 15
+        && (arr.size() == 0 || (arr[0] is string && isValidId(arr[0])));
+    }
+
+    function isValidMemberIdList(arr) {
+      return arr is list
+        && arr.size() >= 1
+        && arr.size() <= 25
+        && arr[0] is string
+        && isValidId(arr[0]);
+    }
+
+    // =========================================================================
+    // Entity Validation Blueprints (Pillar 2)
+    // =========================================================================
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+          'uid',
+          'displayName',
+          'favoriteSpotIds',
+          'alertEnabled',
+          'alertTime',
+          'minWaveHeight',
+          'maxWaveHeight',
+          'maxWindSpeed',
+          'preferOffshoreOnly',
+          'activeCrewId',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'surferLevel',
+          'boardType',
+          'homeRegion',
+          'onboardingCompleted',
+          'favoriteSpotIds',
+          'alertEnabled',
+          'alertTime',
+          'minWaveHeight',
+          'maxWaveHeight',
+          'maxWindSpeed',
+          'preferOffshoreOnly',
+          'activeCrewId',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 60
+        && (!('surferLevel' in data) || (data.surferLevel is string && data.surferLevel in ['beginner', 'intermediate', 'advanced', 'expert']))
+        && (!('boardType' in data) || (data.boardType is string && data.boardType in ['longboard', 'midlength', 'fish', 'shortboard']))
+        && (!('homeRegion' in data) || (data.homeRegion is string && data.homeRegion.size() >= 2 && data.homeRegion.size() <= 60))
+        && (!('onboardingCompleted' in data) || data.onboardingCompleted is bool)
+        && isValidSpotIdList(data.favoriteSpotIds)
+        && data.alertEnabled is bool
+        && isValidAlertTime(data.alertTime)
+        && data.minWaveHeight is number
+        && data.minWaveHeight >= 0.2
+        && data.minWaveHeight <= 5.0
+        && data.maxWaveHeight is number
+        && data.maxWaveHeight >= 0.5
+        && data.maxWaveHeight <= 8.0
+        && data.maxWaveHeight >= data.minWaveHeight
+        && data.maxWindSpeed is number
+        && data.maxWindSpeed >= 5
+        && data.maxWindSpeed <= 60
+        && data.preferOffshoreOnly is bool
+        && data.activeCrewId is string
+        && data.activeCrewId.size() <= 128
+        && (data.activeCrewId == '' || isValidId(data.activeCrewId))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCustomSpot(data) {
+      return data.keys().hasAll([
+          'id',
+          'ownerId',
+          'name',
+          'region',
+          'lat',
+          'lng',
+          'offshoreDeg',
+          'idealMinWave',
+          'idealMaxWave',
+          'breakType',
+          'idealTide',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'ownerId',
+          'name',
+          'region',
+          'lat',
+          'lng',
+          'offshoreDeg',
+          'idealMinWave',
+          'idealMaxWave',
+          'breakType',
+          'idealTide',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.name is string
+        && data.name.size() >= 2
+        && data.name.size() <= 80
+        && data.region is string
+        && data.region.size() >= 2
+        && data.region.size() <= 60
+        && data.lat is number
+        && data.lat >= -90
+        && data.lat <= 90
+        && data.lng is number
+        && data.lng >= -180
+        && data.lng <= 180
+        && data.offshoreDeg is number
+        && data.offshoreDeg >= 0
+        && data.offshoreDeg <= 360
+        && data.idealMinWave is number
+        && data.idealMinWave >= 0.2
+        && data.idealMinWave <= 5.0
+        && data.idealMaxWave is number
+        && data.idealMaxWave >= 0.5
+        && data.idealMaxWave <= 8.0
+        && data.idealMaxWave >= data.idealMinWave
+        && data.breakType is string
+        && data.breakType in ['beach', 'reef', 'point']
+        && data.idealTide is string
+        && data.idealTide.size() >= 2
+        && data.idealTide.size() <= 40
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAlertLog(data) {
+      return data.keys().hasAll([
+          'id',
+          'userId',
+          'dateKey',
+          'bestSpotId',
+          'bestSpotName',
+          'windowLabel',
+          'waveHeight',
+          'wavePeriod',
+          'windSpeed',
+          'windQuality',
+          'score',
+          'summary',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'userId',
+          'dateKey',
+          'bestSpotId',
+          'bestSpotName',
+          'windowLabel',
+          'waveHeight',
+          'wavePeriod',
+          'windSpeed',
+          'windQuality',
+          'score',
+          'summary',
+          'createdAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && isValidDateKey(data.dateKey)
+        && isValidId(data.bestSpotId)
+        && data.bestSpotName is string
+        && data.bestSpotName.size() >= 1
+        && data.bestSpotName.size() <= 80
+        && data.windowLabel is string
+        && data.windowLabel.size() >= 3
+        && data.windowLabel.size() <= 30
+        && data.waveHeight is number
+        && data.waveHeight >= 0
+        && data.waveHeight <= 20
+        && data.wavePeriod is number
+        && data.wavePeriod >= 0
+        && data.wavePeriod <= 30
+        && data.windSpeed is number
+        && data.windSpeed >= 0
+        && data.windSpeed <= 150
+        && data.windQuality is string
+        && data.windQuality in ['glassy', 'offshore', 'cross', 'onshore']
+        && data.score is number
+        && data.score >= 0
+        && data.score <= 10
+        && data.summary is string
+        && data.summary.size() >= 1
+        && data.summary.size() <= 240
+        && data.createdAt is timestamp;
+    }
+
+    function isValidCrew(data) {
+      return data.keys().hasAll([
+          'id',
+          'name',
+          'inviteCode',
+          'ownerId',
+          'memberIds',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'name',
+          'inviteCode',
+          'ownerId',
+          'memberIds',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.name is string
+        && data.name.size() >= 2
+        && data.name.size() <= 60
+        && isValidInviteCode(data.inviteCode)
+        && isValidId(data.ownerId)
+        && isValidMemberIdList(data.memberIds)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCrewInvite(data) {
+      return data.keys().hasAll([
+          'inviteCode',
+          'crewId',
+          'crewName',
+          'ownerId',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'inviteCode',
+          'crewId',
+          'crewName',
+          'ownerId',
+          'createdAt'
+        ])
+        && isValidInviteCode(data.inviteCode)
+        && isValidId(data.crewId)
+        && data.crewName is string
+        && data.crewName.size() >= 2
+        && data.crewName.size() <= 60
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.createdAt is timestamp;
+    }
+
+    function isValidCrewMember(data) {
+      return data.keys().hasAll([
+          'uid',
+          'crewId',
+          'displayName',
+          'favoriteSpotIds',
+          'alertTime',
+          'plannedSpotId',
+          'plannedSlot',
+          'statusNote',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'crewId',
+          'displayName',
+          'favoriteSpotIds',
+          'alertTime',
+          'plannedSpotId',
+          'plannedSlot',
+          'statusNote',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && isValidId(data.crewId)
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 60
+        && isValidSpotIdList(data.favoriteSpotIds)
+        && isValidAlertTime(data.alertTime)
+        && data.plannedSpotId is string
+        && data.plannedSpotId.size() <= 128
+        && (data.plannedSpotId == '' || isValidId(data.plannedSpotId))
+        && data.plannedSlot is string
+        && data.plannedSlot.size() <= 30
+        && data.statusNote is string
+        && data.statusNote.size() <= 120
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidParkingReport(data) {
+      return data.keys().hasAll([
+          'uid',
+          'crewId',
+          'authorName',
+          'spotId',
+          'spotName',
+          'verdict',
+          'observedWaveHeight',
+          'crowdLevel',
+          'windFeel',
+          'note',
+          'dateKey',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'crewId',
+          'authorName',
+          'spotId',
+          'spotName',
+          'verdict',
+          'observedWaveHeight',
+          'crowdLevel',
+          'windFeel',
+          'note',
+          'dateKey',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && isValidId(data.crewId)
+        && data.authorName is string
+        && data.authorName.size() >= 1
+        && data.authorName.size() <= 60
+        && isValidId(data.spotId)
+        && data.spotName is string
+        && data.spotName.size() >= 1
+        && data.spotName.size() <= 80
+        && data.verdict is string
+        && data.verdict in ['go', 'moyen', 'carotte']
+        && data.observedWaveHeight is number
+        && data.observedWaveHeight >= 0
+        && data.observedWaveHeight <= 10
+        && data.crowdLevel is string
+        && data.crowdLevel in ['vide', 'tranquille', 'monde', 'blinde']
+        && data.windFeel is string
+        && data.windFeel in ['glassy', 'offshore', 'cross', 'onshore']
+        && data.note is string
+        && data.note.size() <= 200
+        && isValidDateKey(data.dateKey)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // =========================================================================
+    // Collection Rules
+    // =========================================================================
+
+    // 1. Private User Profile, Surfer Quiver & Morning Alert Config
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isVerified()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == userId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action: Update chosen favorite spots
+          incoming().diff(existing()).affectedKeys().hasOnly(['favoriteSpotIds', 'onboardingCompleted', 'updatedAt'])
+          // Action: Update morning alert preferences
+          || incoming().diff(existing()).affectedKeys().hasOnly([
+            'alertEnabled',
+            'alertTime',
+            'minWaveHeight',
+            'maxWaveHeight',
+            'maxWindSpeed',
+            'preferOffshoreOnly',
+            'updatedAt'
+          ])
+          // Action: Update surfer profile (level, board, home zone, alert calibration, chosen spots)
+          || incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName',
+            'surferLevel',
+            'boardType',
+            'homeRegion',
+            'onboardingCompleted',
+            'favoriteSpotIds',
+            'alertEnabled',
+            'alertTime',
+            'minWaveHeight',
+            'maxWaveHeight',
+            'maxWindSpeed',
+            'preferOffshoreOnly',
+            'updatedAt'
+          ])
+          // Action: Switch or leave active crew
+          || incoming().diff(existing()).affectedKeys().hasOnly(['activeCrewId', 'updatedAt'])
+        );
+      allow delete: if isVerified() && isValidId(userId) && isOwner(userId);
+
+      // 2. Owner-Only Custom Surf Spots
+      match /customSpots/{spotId} {
+        allow get: if isSignedIn()
+          && isValidId(userId)
+          && isValidId(spotId)
+          && isOwner(userId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow list: if isSignedIn()
+          && isOwner(userId)
+          && resource.data.ownerId == request.auth.uid;
+        allow create: if isVerified()
+          && isValidId(userId)
+          && isValidId(spotId)
+          && isOwner(userId)
+          && isValidCustomSpot(incoming())
+          && incoming().id == spotId
+          && incoming().ownerId == userId
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow update: if isVerified()
+          && isValidId(userId)
+          && isValidId(spotId)
+          && isOwner(userId)
+          && isValidCustomSpot(incoming())
+          && incoming().id == existing().id
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'name',
+            'region',
+            'offshoreDeg',
+            'idealMinWave',
+            'idealMaxWave',
+            'breakType',
+            'idealTide',
+            'updatedAt'
+          ]);
+        allow delete: if isVerified()
+          && isValidId(userId)
+          && isValidId(spotId)
+          && isOwner(userId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+      }
+
+      // 3. Owner-Only Immutable Morning Alert Logs
+      match /alertLogs/{logId} {
+        allow get: if isSignedIn()
+          && isValidId(userId)
+          && isValidId(logId)
+          && isOwner(userId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow list: if isSignedIn()
+          && isOwner(userId)
+          && resource.data.userId == request.auth.uid;
+        allow create: if isVerified()
+          && isValidId(userId)
+          && isValidId(logId)
+          && isOwner(userId)
+          && isValidAlertLog(incoming())
+          && incoming().id == logId
+          && incoming().userId == userId
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow update: if false;
+        allow delete: if isVerified()
+          && isValidId(userId)
+          && isValidId(logId)
+          && isOwner(userId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+      }
+    }
+
+    // 4. Surf Crews (Groups of Friends)
+    match /crews/{crewId} {
+      allow get: if isSignedIn()
+        && isValidId(crewId)
+        && (existing().ownerId == request.auth.uid || existing().memberIds.hasAny([request.auth.uid]));
+      allow list: if isSignedIn()
+        && resource.data.memberIds.hasAny([request.auth.uid]);
+      allow create: if isVerified()
+        && isValidId(crewId)
+        && isValidCrew(incoming())
+        && incoming().id == crewId
+        && incoming().ownerId == request.auth.uid
+        && incoming().memberIds.size() == 1
+        && incoming().memberIds[0] == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && existsAfter(/databases/$(database)/documents/crewInvites/$(incoming().inviteCode));
+      allow update: if isVerified()
+        && isValidId(crewId)
+        && isValidCrew(incoming())
+        && incoming().id == existing().id
+        && incoming().ownerId == existing().ownerId
+        && incoming().inviteCode == existing().inviteCode
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action: Owner renames crew
+          (
+            existing().ownerId == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt'])
+          )
+          // Action: Friend joins crew with valid invite
+          || (
+            !existing().memberIds.hasAny([request.auth.uid])
+            && incoming().diff(existing()).affectedKeys().hasOnly(['memberIds', 'updatedAt'])
+            && incoming().memberIds.size() == existing().memberIds.size() + 1
+            && incoming().memberIds.hasAll(existing().memberIds)
+            && incoming().memberIds.hasAny([request.auth.uid])
+            && exists(/databases/$(database)/documents/crewInvites/$(existing().inviteCode))
+          )
+          // Action: Member leaves crew
+          || (
+            existing().memberIds.hasAny([request.auth.uid])
+            && existing().ownerId != request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['memberIds', 'updatedAt'])
+            && incoming().memberIds.size() == existing().memberIds.size() - 1
+            && existing().memberIds.hasAll(incoming().memberIds)
+            && !incoming().memberIds.hasAny([request.auth.uid])
+          )
+        );
+      allow delete: if isVerified()
+        && isValidId(crewId)
+        && existing().ownerId == request.auth.uid;
+
+      // 5. Crew Members (Non-PII, Master Gate Enforced)
+      match /members/{memberId} {
+        allow get: if isSignedIn()
+          && isValidId(crewId)
+          && isValidId(memberId)
+          && get(/databases/$(database)/documents/crews/$(crewId)).data.memberIds.hasAny([request.auth.uid]);
+        allow list: if false;
+        allow create: if isVerified()
+          && isValidId(crewId)
+          && isValidId(memberId)
+          && memberId == request.auth.uid
+          && isValidCrewMember(incoming())
+          && incoming().uid == request.auth.uid
+          && incoming().crewId == crewId
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && getAfter(/databases/$(database)/documents/crews/$(crewId)).data.memberIds.hasAny([request.auth.uid]);
+        allow update: if isVerified()
+          && isValidId(crewId)
+          && isValidId(memberId)
+          && memberId == request.auth.uid
+          && isValidCrewMember(incoming())
+          && incoming().uid == existing().uid
+          && incoming().crewId == existing().crewId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && get(/databases/$(database)/documents/crews/$(crewId)).data.memberIds.hasAny([request.auth.uid])
+          && (
+            // Action: Sync surfer favorites & alert hour
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'displayName',
+              'favoriteSpotIds',
+              'alertTime',
+              'updatedAt'
+            ])
+            // Action: Update planned morning session check-in
+            || incoming().diff(existing()).affectedKeys().hasOnly([
+              'plannedSpotId',
+              'plannedSlot',
+              'statusNote',
+              'updatedAt'
+            ])
+          );
+        allow delete: if isVerified()
+          && isValidId(crewId)
+          && isValidId(memberId)
+          && (
+            memberId == request.auth.uid
+            || get(/databases/$(database)/documents/crews/$(crewId)).data.ownerId == request.auth.uid
+          );
+      }
+
+      // 6. Crew Live Check Parking Reports (Master Gate Enforced, Get-Only)
+      match /parkingReports/{memberId} {
+        allow get: if isSignedIn()
+          && isValidId(crewId)
+          && isValidId(memberId)
+          && get(/databases/$(database)/documents/crews/$(crewId)).data.memberIds.hasAny([request.auth.uid]);
+        allow list: if false;
+        allow create: if isVerified()
+          && isValidId(crewId)
+          && isValidId(memberId)
+          && memberId == request.auth.uid
+          && isValidParkingReport(incoming())
+          && incoming().uid == request.auth.uid
+          && incoming().crewId == crewId
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && get(/databases/$(database)/documents/crews/$(crewId)).data.memberIds.hasAny([request.auth.uid]);
+        allow update: if isVerified()
+          && isValidId(crewId)
+          && isValidId(memberId)
+          && memberId == request.auth.uid
+          && isValidParkingReport(incoming())
+          && incoming().uid == existing().uid
+          && incoming().crewId == existing().crewId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && get(/databases/$(database)/documents/crews/$(crewId)).data.memberIds.hasAny([request.auth.uid])
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'authorName',
+            'spotId',
+            'spotName',
+            'verdict',
+            'observedWaveHeight',
+            'crowdLevel',
+            'windFeel',
+            'note',
+            'dateKey',
+            'updatedAt'
+          ]);
+        allow delete: if isVerified()
+          && isValidId(crewId)
+          && isValidId(memberId)
+          && (
+            memberId == request.auth.uid
+            || get(/databases/$(database)/documents/crews/$(crewId)).data.ownerId == request.auth.uid
+          );
+      }
+    }
+
+    // 7. Invite Code Capability Lookups (Get-Only, No List)
+    match /crewInvites/{inviteCode} {
+      allow get: if isSignedIn() && isValidInviteCode(inviteCode);
+      allow list: if false;
+      allow create: if isVerified()
+        && isValidInviteCode(inviteCode)
+        && isValidCrewInvite(incoming())
+        && incoming().inviteCode == inviteCode
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && existsAfter(/databases/$(database)/documents/crews/$(incoming().crewId));
+      allow update: if false;
+      allow delete: if isVerified()
+        && isValidInviteCode(inviteCode)
+        && existing().ownerId == request.auth.uid;
+    }
+  }
+}

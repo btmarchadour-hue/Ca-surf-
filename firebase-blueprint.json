@@ -1,0 +1,517 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private surfer profile (level, board quiver, home zone), chosen free-API surf spots, and morning alert configuration.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "surferLevel": {
+          "type": "string",
+          "enum": ["beginner", "intermediate", "advanced", "expert"]
+        },
+        "boardType": {
+          "type": "string",
+          "enum": ["longboard", "midlength", "fish", "shortboard"]
+        },
+        "homeRegion": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "onboardingCompleted": {
+          "type": "boolean"
+        },
+        "favoriteSpotIds": {
+          "type": "array",
+          "description": "Bounded list of up to 15 chosen spot IDs from the verified free-API catalog."
+        },
+        "alertEnabled": {
+          "type": "boolean"
+        },
+        "alertTime": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 5,
+          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "minWaveHeight": {
+          "type": "number"
+        },
+        "maxWaveHeight": {
+          "type": "number"
+        },
+        "maxWindSpeed": {
+          "type": "number"
+        },
+        "preferOffshoreOnly": {
+          "type": "boolean"
+        },
+        "activeCrewId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "favoriteSpotIds",
+        "alertEnabled",
+        "alertTime",
+        "minWaveHeight",
+        "maxWaveHeight",
+        "maxWindSpeed",
+        "preferOffshoreOnly",
+        "activeCrewId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CustomSpot": {
+      "title": "CustomSpot",
+      "description": "User-defined custom surf spot with geographic coordinates and offshore angle.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "region": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "lat": {
+          "type": "number"
+        },
+        "lng": {
+          "type": "number"
+        },
+        "offshoreDeg": {
+          "type": "number"
+        },
+        "idealMinWave": {
+          "type": "number"
+        },
+        "idealMaxWave": {
+          "type": "number"
+        },
+        "breakType": {
+          "type": "string",
+          "enum": ["beach", "reef", "point"]
+        },
+        "idealTide": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "name",
+        "region",
+        "lat",
+        "lng",
+        "offshoreDeg",
+        "idealMinWave",
+        "idealMaxWave",
+        "breakType",
+        "idealTide",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AlertLog": {
+      "title": "AlertLog",
+      "description": "Immutable morning surf alert briefing logged for a surfer.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "dateKey": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "bestSpotId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "bestSpotName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "windowLabel": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 30
+        },
+        "waveHeight": {
+          "type": "number"
+        },
+        "wavePeriod": {
+          "type": "number"
+        },
+        "windSpeed": {
+          "type": "number"
+        },
+        "windQuality": {
+          "type": "string",
+          "enum": ["glassy", "offshore", "cross", "onshore"]
+        },
+        "score": {
+          "type": "number"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "dateKey",
+        "bestSpotId",
+        "bestSpotName",
+        "windowLabel",
+        "waveHeight",
+        "wavePeriod",
+        "windSpeed",
+        "windQuality",
+        "score",
+        "summary",
+        "createdAt"
+      ]
+    },
+    "SurfCrew": {
+      "title": "SurfCrew",
+      "description": "Shared group of surf friends coordinating spots and dawn patrol sessions.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "inviteCode": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 12,
+          "pattern": "^[A-Z0-9]{6,12}$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "memberIds": {
+          "type": "array",
+          "description": "Bounded list of up to 25 member UIDs."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "inviteCode",
+        "ownerId",
+        "memberIds",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CrewInvite": {
+      "title": "CrewInvite",
+      "description": "Lookup document mapping an invite code to a SurfCrew.",
+      "type": "object",
+      "properties": {
+        "inviteCode": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 12,
+          "pattern": "^[A-Z0-9]{6,12}$"
+        },
+        "crewId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "crewName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "inviteCode",
+        "crewId",
+        "crewName",
+        "ownerId",
+        "createdAt"
+      ]
+    },
+    "CrewMember": {
+      "title": "CrewMember",
+      "description": "Crew-scoped non-PII surfer profile showing favorite spots and planned morning session.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "crewId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "favoriteSpotIds": {
+          "type": "array",
+          "description": "Bounded list of up to 15 favorite spot IDs."
+        },
+        "alertTime": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 5,
+          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "plannedSpotId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "plannedSlot": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "statusNote": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "crewId",
+        "displayName",
+        "favoriteSpotIds",
+        "alertTime",
+        "plannedSpotId",
+        "plannedSlot",
+        "statusNote",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ParkingReport": {
+      "title": "ParkingReport",
+      "description": "Live on-site parking check posted by a crew member (terrain verdict, observed wave height, crowd, wind feel, short note).",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "crewId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "authorName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "spotId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "spotName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "verdict": {
+          "type": "string",
+          "enum": ["go", "moyen", "carotte"]
+        },
+        "observedWaveHeight": {
+          "type": "number"
+        },
+        "crowdLevel": {
+          "type": "string",
+          "enum": ["vide", "tranquille", "monde", "blinde"]
+        },
+        "windFeel": {
+          "type": "string",
+          "enum": ["glassy", "offshore", "cross", "onshore"]
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "dateKey": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "crewId",
+        "authorName",
+        "spotId",
+        "spotName",
+        "verdict",
+        "observedWaveHeight",
+        "crowdLevel",
+        "windFeel",
+        "note",
+        "dateKey",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Owner-only surfer profile, level, quiver, chosen free-API spots, and morning alert preferences."
+    },
+    "/users/{userId}/customSpots/{spotId}": {
+      "schema": { "$ref": "#/entities/CustomSpot" },
+      "description": "Owner-only custom surf spots added by the surfer."
+    },
+    "/users/{userId}/alertLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AlertLog" },
+      "description": "Owner-only immutable history of generated morning surf briefings."
+    },
+    "/crews/{crewId}": {
+      "schema": { "$ref": "#/entities/SurfCrew" },
+      "description": "Friend surf crew with bounded memberIds list and invite code."
+    },
+    "/crewInvites/{inviteCode}": {
+      "schema": { "$ref": "#/entities/CrewInvite" },
+      "description": "Capability-based invite code lookup (get-only, no list)."
+    },
+    "/crews/{crewId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/CrewMember" },
+      "description": "Crew-scoped non-PII surfer cards protected by Master Gate on parent crew."
+    },
+    "/crews/{crewId}/parkingReports/{memberId}": {
+      "schema": { "$ref": "#/entities/ParkingReport" },
+      "description": "Crew-scoped live on-site Check Parking reports protected by Master Gate on parent crew."
+    }
+  }
+}
