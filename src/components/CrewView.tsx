@@ -433,23 +433,22 @@ export function CrewView({
                       {favNames.length > 0 ? favNames.join(' · ') : 'Aucun spot choisi'}
                     </div>
 
-                    {memberReport && (
-                      <div className="mt-3 pt-2.5 border-t border-white/10 text-xs space-y-0.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <span
-                            className={`font-semibold ${
-                              VERDICT_META[memberReport.verdict].textClass
-                            }`}
-                          >
-                            Check : {VERDICT_META[memberReport.verdict].shortLabel}
-                          </span>
-                          <span className="text-[#6D8796]">
-                            {formatReportAgeFr(memberReport)}
-                          </span>
+                    {memberReport && (() => {
+                      const reportMeta = VERDICT_META[memberReport.verdict] ?? VERDICT_META.moyen;
+                      return (
+                        <div className="mt-3 pt-2.5 border-t border-white/10 text-xs space-y-0.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`font-semibold ${reportMeta.textClass}`}>
+                              Check : {reportMeta.shortLabel}
+                            </span>
+                            <span className="text-[#6D8796]">
+                              {formatReportAgeFr(memberReport)}
+                            </span>
+                          </div>
+                          <div className="text-[#CBD8E1] truncate">{memberReport.spotName}</div>
                         </div>
-                        <div className="text-[#CBD8E1] truncate">{memberReport.spotName}</div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
 
                   <div className="pt-3 border-t border-white/10 text-xs">

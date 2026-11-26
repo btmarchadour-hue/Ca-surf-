@@ -345,7 +345,8 @@ export function ParkingCheckCard({
           {reports.length > 0 && (
             <div className="divide-y divide-white/10">
               {reports.map((report) => {
-                const meta = VERDICT_META[report.verdict];
+                const meta = VERDICT_META[report.verdict] ?? VERDICT_META.moyen;
+                const crowdLabel = CROWD_META[report.crowdLevel] ?? CROWD_META.tranquille;
                 const canDelete =
                   Boolean(onDeleteReport) &&
                   (report.uid === currentUserId || report.uid === 'local-guest');
@@ -380,7 +381,7 @@ export function ParkingCheckCard({
 
                       <div className="font-mono tabular-nums text-xs text-[#8AA6B7]">
                         {report.observedWaveHeight.toFixed(1).replace('.', ',')} m observés ·{' '}
-                        {windQualityLabelFr(report.windFeel)} · {CROWD_META[report.crowdLevel]}
+                        {windQualityLabelFr(report.windFeel)} · {crowdLabel}
                       </div>
 
                       {report.note && (

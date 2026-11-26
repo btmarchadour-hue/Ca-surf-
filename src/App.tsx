@@ -6,6 +6,7 @@ import { AddSpotModal } from './components/AddSpotModal';
 import { CrewView } from './components/CrewView';
 import { DashboardView } from './components/DashboardView';
 import { MorningAlertModal } from './components/MorningAlertModal';
+import { OnboardingGate } from './components/OnboardingGate';
 import { OtherSpotsSearchModal } from './components/OtherSpotsSearchModal';
 import { SpotDetailPanel } from './components/SpotDetailPanel';
 import { SpotsCatalogView } from './components/SpotsCatalogView';
@@ -45,6 +46,12 @@ import {
   haversineKm,
   rankSpotsForDate,
 } from './lib/surfEngine';
+import {
+  sanitizeParkingReports,
+  sanitizeSpotIdList,
+  sanitizeSurferPrefs,
+  sanitizeUserLocation,
+} from './lib/validation';
 import type {
   ActiveTab,
   AlertLogRecord,
@@ -77,8 +84,8 @@ export default function App() {
     try {
       const saved = localStorage.getItem(LOCAL_FAV_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved) as string[];
-        if (Array.isArray(parsed)) return parsed;
+        const parsed = JSON.parse(saved) as unknown;
+        if (Array.isArray(parsed)) return sanitizeSpotIdList(parsed);
       }
     } catch {
       // ignore
@@ -89,7 +96,7 @@ export default function App() {
   const [guestSurferPrefs, setGuestSurferPrefs] = useState<SurferPreferences>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_PREFS_KEY);
-      if (saved) return { ...DEFAULT_SURFER_PREFS, ...(JSON.parse(saved) as SurferPreferences) };
+      if (saved) return sanitizeSurferPrefs(JSON.parse(saved), DEFAULT_SURFER_PREFS);
     } catch {
       // ignore
     }
@@ -104,10 +111,7 @@ export default function App() {
   const [localParkingReports, setLocalParkingReports] = useState<ParkingReportRecord[]>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_PARKING_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as ParkingReportRecord[];
-        if (Array.isArray(parsed)) return parsed;
-      }
+      if (saved) return sanitizeParkingReports(JSON.parse(saved));
     } catch {
       // ignore
     }
@@ -129,12 +133,7 @@ export default function App() {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_LOCATION_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as UserLocation;
-        if (typeof parsed.lat === 'number' && typeof parsed.lng === 'number') {
-          return parsed;
-        }
-      }
+      if (saved) return sanitizeUserLocation(JSON.parse(saved));
     } catch {
       // ignore
     }
@@ -310,7 +309,13 @@ export default function App() {
     if (!authReady || !user) return;
 
     let cancelled = false;
-    void ensureUserProfile(user.uid, user.displayName).then((p) => {
+    void ensureUserProfile(
+      user.uid,
+      user.displayName,
+      guestSurferPrefs.onboardingCompleted
+        ? { prefs: guestSurferPrefs, favoriteSpotIds: guestFavorites }
+        : undefined
+    ).then((p) => {
       if (!cancelled) setProfile(p);
     });
 
@@ -641,6 +646,36 @@ export default function App() {
 
   const viewKey = selectedSpot ? `spot-${selectedSpot.id}` : `tab-${activeTab}`;
 
+  // Wait for auth & Firestore profile hydration so returning signed-in users never flash onboarding
+  if (!authReady || (user && !profile)) {
+    return (
+      <div className="min-h-screen text-[#F3F7FA] flex items-center justify-center p-6">
+        <div className="text-center space-y-2">
+          <div className="font-display text-3xl font-extrabold tracking-wide text-[#F8FBFE]">
+            Ça Surf <span className="text-[#F0A53A]">?</span>
+          </div>
+          <p className="text-xs text-[#8AA6B7]">Chargement de votre profil...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Mandatory first-launch onboarding gate
+  if (!surferPrefs.onboardingCompleted) {
+    return (
+      <OnboardingGate
+        initialPrefs={surferPrefs}
+        allSpots={allSpots}
+        userLocation={userLocation}
+        geoStatus={geoStatus}
+        isSignedIn={Boolean(user)}
+        onRequestGps={requestGpsLocation}
+        onSignIn={() => void handleSignIn()}
+        onComplete={handleSaveFullProfile}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen text-[#F3F7FA] flex flex-col pb-20 md:pb-0">
       {/* Strict 3-Zone Top Navigation Bar */}
@@ -750,15 +785,9 @@ export default function App() {
                 forecasts={forecasts}
                 loadingForecasts={loadingForecasts}
                 surferPrefs={surferPrefs}
-                parkingReports={effectiveParkingReports}
                 userLocation={userLocation}
-                geoStatus={geoStatus}
-                onRequestGps={requestGpsLocation}
-                onOpenOtherSpotsSearch={() => setSearchMenuOpen(true)}
                 onSelectSpot={(id) => setSelectedSpotId(id)}
-                onOpenAlertPreview={(dk) => setAlertModalDate(dk)}
                 onNavigateTab={(tab) => navigateTo(tab)}
-                onToggleFavorite={(id) => void handleToggleFavorite(id)}
               />
             ) : activeTab === 'spots' ? (
               <SpotsCatalogView

@@ -378,6 +378,13 @@
           "type": "string",
           "maxLength": 120
         },
+        "joinedWithCode": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 12,
+          "pattern": "^[A-Z0-9]{6,12}$",
+          "description": "Immutable invite code capability proof supplied atomically when joining a crew."
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time"

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Compass } from 'lucide-react';
 import { degreesToCompass } from '../lib/surfEngine';
+import { toSafeHttpsUrl } from '../lib/validation';
 import type { BreakType } from '../types/surf';
 
 interface SpotImageProps {
@@ -31,7 +32,8 @@ export function SpotImage({
 }: SpotImageProps) {
   const [failed, setFailed] = useState(false);
 
-  const hasValidPhoto = Boolean(src && src.trim().length > 0 && !failed);
+  const safeSrc = toSafeHttpsUrl(src);
+  const hasValidPhoto = Boolean(safeSrc && !failed);
 
   if (!hasValidPhoto) {
     const cx = 160;
@@ -179,7 +181,7 @@ export function SpotImage({
   return (
     <div className={`relative overflow-hidden ${className}`}>
       <img
-        src={src}
+        src={safeSrc ?? undefined}
         alt={alt}
         loading="lazy"
         referrerPolicy="no-referrer"

@@ -14,6 +14,7 @@ import type {
   SurfSpot,
   WindQuality,
 } from '../types/surf';
+import { toSafeHttpsUrl } from './validation';
 
 interface MarineApiResponse {
   hourly?: {
@@ -982,17 +983,18 @@ const DIRECT_WEBCAM_INFO: Record<
 };
 
 export function getSpotWebcams(spot: SurfSpot): SpotWebcamInfo {
-  const lat = spot.lat.toFixed(3);
-  const lng = spot.lng.toFixed(3);
+  const lat = Number.isFinite(spot.lat) ? spot.lat.toFixed(3) : '48.200';
+  const lng = Number.isFinite(spot.lng) ? spot.lng.toFixed(3) : '-4.500';
   const windyCamsUrl = `https://www.windy.com/-Webcams/webcams?${lat},${lng},12`;
   const windyWavesUrl = `https://www.windy.com/${lat}/${lng}?waves,${lat},${lng},11`;
 
   const known = DIRECT_WEBCAM_INFO[spot.id];
-  if (known) {
+  const safeKnownUrl = known ? toSafeHttpsUrl(known.url) : null;
+  if (known && safeKnownUrl) {
     return {
-      primaryUrl: known.hasDirectBeachCam ? known.url : windyCamsUrl,
+      primaryUrl: known.hasDirectBeachCam ? safeKnownUrl : windyCamsUrl,
       primaryLabel: known.hasDirectBeachCam ? known.label : 'Carte Webcams Live autour du spot',
-      secondaryUrl: known.hasDirectBeachCam ? windyCamsUrl : known.url,
+      secondaryUrl: known.hasDirectBeachCam ? windyCamsUrl : safeKnownUrl,
       secondaryLabel: known.hasDirectBeachCam ? 'Radar Webcams Windy' : known.label,
       note: known.note,
       hasDirectBeachCam: known.hasDirectBeachCam,

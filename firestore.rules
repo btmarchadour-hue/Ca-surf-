@@ -49,7 +49,15 @@ service cloud.firestore {
     function isValidSpotIdList(arr) {
       return arr is list
         && arr.size() <= 15
-        && (arr.size() == 0 || (arr[0] is string && isValidId(arr[0])));
+        && (
+          arr.size() == 0
+          || (
+            arr[0] is string
+            && isValidId(arr[0])
+            && arr[arr.size() - 1] is string
+            && isValidId(arr[arr.size() - 1])
+          )
+        );
     }
 
     function isValidMemberIdList(arr) {
@@ -57,7 +65,9 @@ service cloud.firestore {
         && arr.size() >= 1
         && arr.size() <= 25
         && arr[0] is string
-        && isValidId(arr[0]);
+        && isValidId(arr[0])
+        && arr[arr.size() - 1] is string
+        && isValidId(arr[arr.size() - 1]);
     }
 
     // =========================================================================
@@ -330,6 +340,7 @@ service cloud.firestore {
           'plannedSpotId',
           'plannedSlot',
           'statusNote',
+          'joinedWithCode',
           'createdAt',
           'updatedAt'
         ])
@@ -348,6 +359,7 @@ service cloud.firestore {
         && data.plannedSlot.size() <= 30
         && data.statusNote is string
         && data.statusNote.size() <= 120
+        && (!('joinedWithCode' in data) || isValidInviteCode(data.joinedWithCode))
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
@@ -556,7 +568,8 @@ service cloud.firestore {
         && incoming().memberIds[0] == request.auth.uid
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time
-        && existsAfter(/databases/$(database)/documents/crewInvites/$(incoming().inviteCode));
+        && getAfter(/databases/$(database)/documents/crewInvites/$(incoming().inviteCode)).data.crewId == crewId
+        && getAfter(/databases/$(database)/documents/crewInvites/$(incoming().inviteCode)).data.ownerId == request.auth.uid;
       allow update: if isVerified()
         && isValidId(crewId)
         && isValidCrew(incoming())
@@ -571,7 +584,7 @@ service cloud.firestore {
             existing().ownerId == request.auth.uid
             && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt'])
           )
-          // Action: Friend joins crew with valid invite
+          // Action: Friend joins crew with atomic invite capability proof
           || (
             !existing().memberIds.hasAny([request.auth.uid])
             && incoming().diff(existing()).affectedKeys().hasOnly(['memberIds', 'updatedAt'])
@@ -579,6 +592,7 @@ service cloud.firestore {
             && incoming().memberIds.hasAll(existing().memberIds)
             && incoming().memberIds.hasAny([request.auth.uid])
             && exists(/databases/$(database)/documents/crewInvites/$(existing().inviteCode))
+            && getAfter(/databases/$(database)/documents/crews/$(crewId)/members/$(request.auth.uid)).data.joinedWithCode == existing().inviteCode
           )
           // Action: Member leaves crew
           || (
@@ -608,6 +622,8 @@ service cloud.firestore {
           && isValidCrewMember(incoming())
           && incoming().uid == request.auth.uid
           && incoming().crewId == crewId
+          && 'joinedWithCode' in incoming()
+          && incoming().joinedWithCode == getAfter(/databases/$(database)/documents/crews/$(crewId)).data.inviteCode
           && incoming().createdAt == request.time
           && incoming().updatedAt == request.time
           && getAfter(/databases/$(database)/documents/crews/$(crewId)).data.memberIds.hasAny([request.auth.uid]);
@@ -695,9 +711,9 @@ service cloud.firestore {
       }
     }
 
-    // 7. Invite Code Capability Lookups (Get-Only, No List)
+    // 7. Invite Code Capability Lookups (Verified Get-Only, No List, Owner-Bound Create)
     match /crewInvites/{inviteCode} {
-      allow get: if isSignedIn() && isValidInviteCode(inviteCode);
+      allow get: if isVerified() && isValidInviteCode(inviteCode);
       allow list: if false;
       allow create: if isVerified()
         && isValidInviteCode(inviteCode)
@@ -705,7 +721,8 @@ service cloud.firestore {
         && incoming().inviteCode == inviteCode
         && incoming().ownerId == request.auth.uid
         && incoming().createdAt == request.time
-        && existsAfter(/databases/$(database)/documents/crews/$(incoming().crewId));
+        && getAfter(/databases/$(database)/documents/crews/$(incoming().crewId)).data.ownerId == request.auth.uid
+        && getAfter(/databases/$(database)/documents/crews/$(incoming().crewId)).data.inviteCode == inviteCode;
       allow update: if false;
       allow delete: if isVerified()
         && isValidInviteCode(inviteCode)

@@ -181,6 +181,7 @@ export interface CrewMemberRecord {
   plannedSpotId: string;
   plannedSlot: string;
   statusNote: string;
+  joinedWithCode?: string;
   createdAt?: unknown;
   updatedAt?: unknown;
 }

@@ -57,7 +57,7 @@ export class ErrorBoundary extends React.Component<
                 <a
                   href={upgradeUrl}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="text-[#F0A53A] underline font-medium"
                 >
                   Consulter les quotas Firestore

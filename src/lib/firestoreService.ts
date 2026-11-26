@@ -36,6 +36,7 @@ import { db, handleFirestoreError, OperationType } from './firebase';
 import {
   clampNumber,
   generateInviteCode,
+  generateSecureId,
   LIMITS,
   normalizeInviteCode,
   sanitizeAlertTime,
@@ -83,7 +84,11 @@ function normalizeLoadedProfile(raw: Partial<UserProfile>, uid: string): UserPro
 
 export async function ensureUserProfile(
   uid: string,
-  displayNameRaw: string | null
+  displayNameRaw: string | null,
+  initialGuest?: {
+    prefs?: SurferPreferences;
+    favoriteSpotIds?: string[];
+  }
 ): Promise<UserProfile> {
   const path = `users/${uid}`;
   const userRef = doc(db, 'users', uid);
@@ -94,21 +99,42 @@ export async function ensureUserProfile(
       return normalizeLoadedProfile(snap.data() as Partial<UserProfile>, uid);
     }
 
-    const displayName = sanitizeText(displayNameRaw || 'Surfeur', LIMITS.MAX_DISPLAY_NAME, 'Surfeur');
+    const basePrefs = initialGuest?.prefs ?? DEFAULT_SURFER_PREFS;
+    const minWaveHeight = clampNumber(
+      basePrefs.minWaveHeight,
+      LIMITS.MIN_WAVE_MIN,
+      LIMITS.MIN_WAVE_MAX
+    );
+    const maxWaveHeight = clampNumber(
+      Math.max(basePrefs.maxWaveHeight, minWaveHeight),
+      LIMITS.MAX_WAVE_MIN,
+      LIMITS.MAX_WAVE_MAX
+    );
+    const preferredName =
+      basePrefs.displayName && basePrefs.displayName !== 'Surfeur'
+        ? basePrefs.displayName
+        : displayNameRaw || 'Surfeur';
+    const displayName = sanitizeText(preferredName, LIMITS.MAX_DISPLAY_NAME, 'Surfeur');
+    const favoriteSpotIds = sanitizeSpotIdList(
+      initialGuest?.favoriteSpotIds && initialGuest.favoriteSpotIds.length > 0
+        ? initialGuest.favoriteSpotIds
+        : DEFAULT_FAVORITE_SPOT_IDS
+    );
+
     const newProfile = {
       uid,
       displayName,
-      surferLevel: DEFAULT_SURFER_PREFS.surferLevel,
-      boardType: DEFAULT_SURFER_PREFS.boardType,
-      homeRegion: DEFAULT_SURFER_PREFS.homeRegion,
-      onboardingCompleted: false,
-      favoriteSpotIds: sanitizeSpotIdList(DEFAULT_FAVORITE_SPOT_IDS),
-      alertEnabled: DEFAULT_SURFER_PREFS.alertEnabled,
-      alertTime: DEFAULT_SURFER_PREFS.alertTime,
-      minWaveHeight: DEFAULT_SURFER_PREFS.minWaveHeight,
-      maxWaveHeight: DEFAULT_SURFER_PREFS.maxWaveHeight,
-      maxWindSpeed: DEFAULT_SURFER_PREFS.maxWindSpeed,
-      preferOffshoreOnly: DEFAULT_SURFER_PREFS.preferOffshoreOnly,
+      surferLevel: basePrefs.surferLevel,
+      boardType: basePrefs.boardType,
+      homeRegion: sanitizeText(basePrefs.homeRegion, LIMITS.MAX_REGION_NAME, DEFAULT_SURFER_PREFS.homeRegion),
+      onboardingCompleted: Boolean(basePrefs.onboardingCompleted),
+      favoriteSpotIds,
+      alertEnabled: Boolean(basePrefs.alertEnabled),
+      alertTime: sanitizeAlertTime(basePrefs.alertTime),
+      minWaveHeight,
+      maxWaveHeight,
+      maxWindSpeed: clampNumber(basePrefs.maxWindSpeed, LIMITS.WIND_MIN, LIMITS.WIND_MAX),
+      preferOffshoreOnly: Boolean(basePrefs.preferOffshoreOnly),
       activeCrewId: '',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -453,7 +479,7 @@ export async function createSurfCrew(
   crewNameRaw: string
 ): Promise<SurfCrewRecord> {
   const crewName = sanitizeText(crewNameRaw, LIMITS.MAX_CREW_NAME, 'Mon groupe surf');
-  const crewId = sanitizeId(`crew-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`);
+  const crewId = generateSecureId('crew');
   const inviteCode = generateInviteCode();
 
   const batch = writeBatch(db);
@@ -486,6 +512,7 @@ export async function createSurfCrew(
     plannedSpotId: '',
     plannedSlot: '',
     statusNote: '',
+    joinedWithCode: inviteCode,
     createdAt: now,
     updatedAt: now,
   });
@@ -545,6 +572,7 @@ export async function joinSurfCrewByCode(
     plannedSpotId: '',
     plannedSlot: '',
     statusNote: '',
+    joinedWithCode: code,
     createdAt: now,
     updatedAt: now,
   });
@@ -573,6 +601,7 @@ export async function leaveSurfCrew(uid: string, crew: SurfCrewRecord): Promise<
     updatedAt: now,
   });
   batch.delete(doc(db, 'crews', crew.id, 'members', uid));
+  batch.delete(doc(db, 'crews', crew.id, 'parkingReports', uid));
   batch.update(doc(db, 'users', uid), {
     activeCrewId: '',
     updatedAt: now,
