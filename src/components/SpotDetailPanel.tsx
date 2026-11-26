@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,7 +17,8 @@ import {
   findBestWindowForSpot,
   findShelterFallback,
   formatFrenchDateLabel,
-  getLocalDateKey,
+  formatShortDayHeader,
+  getForecastDateKeys,
   getSpotWebcams,
   recommendWetsuitFr,
   windQualityLabelFr,
@@ -53,6 +54,7 @@ interface SpotDetailPanelProps {
   onDeleteParkingReport: (memberUid: string, spotId?: string) => Promise<void>;
   onNavigateCrew: () => void;
   hasActiveCrew: boolean;
+  initialDateKey?: string;
 }
 
 export function SpotDetailPanel({
@@ -74,13 +76,32 @@ export function SpotDetailPanel({
   onDeleteParkingReport,
   onNavigateCrew,
   hasActiveCrew,
+  initialDateKey,
 }: SpotDetailPanelProps) {
-  const dateKeys = useMemo(
-    () => [getLocalDateKey(0), getLocalDateKey(1), getLocalDateKey(2)],
-    []
+  const dateKeys = useMemo(() => getForecastDateKeys(7), []);
+  const [selectedDate, setSelectedDate] = useState(
+    initialDateKey && dateKeys.includes(initialDateKey) ? initialDateKey : dateKeys[0]
   );
-  const [selectedDate, setSelectedDate] = useState(dateKeys[0]);
   const [sessionConfirmed, setSessionConfirmed] = useState(false);
+
+  useEffect(() => {
+    if (initialDateKey && dateKeys.includes(initialDateKey)) {
+      setSelectedDate(initialDateKey);
+    } else {
+      setSelectedDate(dateKeys[0]);
+    }
+  }, [initialDateKey, spot.id, dateKeys]);
+
+  const dailyScoreMap = useMemo(() => {
+    const scores: Record<string, number> = {};
+    for (const dk of dateKeys) {
+      const w = findBestWindowForSpot(spot, forecast, dk, surferPrefs, {
+        includePastToday: dk !== dateKeys[0],
+      });
+      if (w) scores[dk] = w.avgScore;
+    }
+    return scores;
+  }, [spot, forecast, dateKeys, surferPrefs]);
 
   const dayPoints = useMemo(
     () => (forecast ? forecast.hourly.filter((p) => p.dateKey === selectedDate) : []),
@@ -348,31 +369,65 @@ export function SpotDetailPanel({
       {/* Hourly Forecast + Wind Compass & Webcams */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
         <div className="xl:col-span-8 surf-card rounded-2xl p-6">
-          <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
-            <div>
-              <h2 className="font-display text-2xl font-extrabold tracking-tight text-[#F8FBFE]">
-                Prévisions heure par heure
-              </h2>
-              <p className="text-xs text-[#8AA6B7] mt-0.5">
-                Cliquez sur une heure pour inspecter houle, période, vent et température de l’eau.
-              </p>
+          <div className="space-y-4 mb-5">
+            <div className="flex items-baseline justify-between gap-4 flex-wrap">
+              <div>
+                <h2 className="font-display text-2xl font-extrabold tracking-tight text-[#F8FBFE]">
+                  Prévisions heure par heure (7 jours)
+                </h2>
+                <p className="text-xs text-[#8AA6B7] mt-0.5">
+                  Choisissez un jour puis cliquez sur une heure pour inspecter houle, période et vent.
+                </p>
+              </div>
+              <span className="text-xs font-medium text-[#F7C266]">
+                {formatFrenchDateLabel(selectedDate)}
+              </span>
             </div>
 
-            <div className="flex items-center gap-1 p-1 bg-[#071119] border border-white/10 rounded-xl">
-              {dateKeys.map((dk) => (
-                <button
-                  key={dk}
-                  type="button"
-                  onClick={() => setSelectedDate(dk)}
-                  className={`px-3 py-1.5 text-xs rounded-lg transition-all whitespace-nowrap shrink-0 ${
-                    selectedDate === dk
-                      ? 'surf-btn-primary font-semibold'
-                      : 'text-[#94ACB9] hover:text-[#F3F7FA] font-medium'
-                  }`}
-                >
-                  {formatFrenchDateLabel(dk)}
-                </button>
-              ))}
+            <div className="flex items-center gap-1.5 p-1 bg-[#071119] border border-white/10 rounded-xl overflow-x-auto">
+              {dateKeys.map((dk) => {
+                const header = formatShortDayHeader(dk);
+                const dayScore = dailyScoreMap[dk];
+                const isActive = selectedDate === dk;
+                return (
+                  <button
+                    key={dk}
+                    type="button"
+                    onClick={() => setSelectedDate(dk)}
+                    className={`flex-1 min-w-[78px] px-2.5 py-2 rounded-lg transition-all text-left whitespace-nowrap shrink-0 ${
+                      isActive
+                        ? 'surf-btn-primary font-semibold'
+                        : 'text-[#94ACB9] hover:text-[#F3F7FA] hover:bg-white/5 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1.5">
+                      <span className="text-[11px]">{header.weekday}</span>
+                      {dayScore !== undefined && (
+                        <span
+                          className={`font-mono tabular-nums text-[11px] font-bold ${
+                            isActive
+                              ? 'text-[#060D13]'
+                              : dayScore >= 7.5
+                              ? 'text-[#2DD4BF]'
+                              : dayScore >= 5.8
+                              ? 'text-[#F7C266]'
+                              : 'text-[#7D9BAC]'
+                          }`}
+                        >
+                          {dayScore.toFixed(1).replace('.', ',')}
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className={`text-[10px] font-mono tabular-nums mt-0.5 ${
+                        isActive ? 'text-[#060D13]/80' : 'text-[#6D8796]'
+                      }`}
+                    >
+                      {header.dayNum}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
 import { AnimatePresence, motion } from 'motion/react';
-import { Bell, LocateFixed, RefreshCw, Search, UserRound, Users, Waves } from 'lucide-react';
+import {
+  Bell,
+  CalendarDays,
+  LocateFixed,
+  RefreshCw,
+  Search,
+  UserRound,
+  Users,
+  Waves,
+} from 'lucide-react';
 import { AddSpotModal } from './components/AddSpotModal';
 import { CrewView } from './components/CrewView';
 import { DashboardView } from './components/DashboardView';
+import { ForecastPlannerView } from './components/ForecastPlannerView';
 import { MorningAlertModal } from './components/MorningAlertModal';
 import { OnboardingGate } from './components/OnboardingGate';
 import { OtherSpotsSearchModal } from './components/OtherSpotsSearchModal';
@@ -125,6 +135,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('session');
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
+  const [selectedSpotDateKey, setSelectedSpotDateKey] = useState<string | undefined>(undefined);
   const [alertModalDate, setAlertModalDate] = useState<string | null>(null);
   const [addSpotOpen, setAddSpotOpen] = useState(false);
   const [searchMenuOpen, setSearchMenuOpen] = useState(false);
@@ -633,14 +644,22 @@ export default function App() {
 
   const navItems: Array<{ id: ActiveTab; label: string; shortLabel: string }> = [
     { id: 'session', label: 'Session du jour', shortLabel: 'Session' },
+    { id: 'forecast', label: 'Prévisions 7j', shortLabel: '7 jours' },
     { id: 'spots', label: `Autour (<${NEARBY_RADIUS_KM} km)`, shortLabel: '<100 km' },
     { id: 'crew', label: 'Groupe d’amis', shortLabel: 'Groupe' },
     { id: 'profile', label: 'Mon profil', shortLabel: 'Profil' },
   ];
 
+  const openSpot = (spotId: string, dateKey?: string) => {
+    setSelectedSpotId(spotId);
+    setSelectedSpotDateKey(dateKey);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const navigateTo = (tab: ActiveTab) => {
     setActiveTab(tab);
     setSelectedSpotId(null);
+    setSelectedSpotDateKey(undefined);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -690,9 +709,9 @@ export default function App() {
             Ça Surf <span className="text-[#F0A53A]">?</span>
           </button>
 
-          {/* Zone 2: 4 Clean Single-Line Text Links */}
+          {/* Zone 2: 5 Clean Single-Line Text Links */}
           <nav
-            className="hidden md:flex items-center gap-8 text-sm font-medium"
+            className="hidden md:flex items-center gap-6 lg:gap-7 text-sm font-medium"
             aria-label="Navigation principale"
           >
             {navItems.map((item) => {
@@ -768,8 +787,12 @@ export default function App() {
                 parkingReports={effectiveParkingReports}
                 currentUserId={user?.uid ?? null}
                 isSignedIn={Boolean(user)}
-                onBack={() => setSelectedSpotId(null)}
-                onSelectSpot={(id) => setSelectedSpotId(id)}
+                initialDateKey={selectedSpotDateKey}
+                onBack={() => {
+                  setSelectedSpotId(null);
+                  setSelectedSpotDateKey(undefined);
+                }}
+                onSelectSpot={(id) => openSpot(id, selectedSpotDateKey)}
                 onToggleFavorite={(id) => void handleToggleFavorite(id)}
                 onDeleteCustom={(id) => void handleDeleteCustomSpot(id)}
                 onPlanSession={(spotId, slot) => void handlePlanSessionFromSpot(spotId, slot)}
@@ -786,7 +809,19 @@ export default function App() {
                 loadingForecasts={loadingForecasts}
                 surferPrefs={surferPrefs}
                 userLocation={userLocation}
-                onSelectSpot={(id) => setSelectedSpotId(id)}
+                onSelectSpot={(id) => openSpot(id)}
+                onNavigateTab={(tab) => navigateTo(tab)}
+              />
+            ) : activeTab === 'forecast' ? (
+              <ForecastPlannerView
+                allSpots={allSpots}
+                favoriteSpotIds={favoriteSpotIds}
+                forecasts={forecasts}
+                loadingForecasts={loadingForecasts}
+                surferPrefs={surferPrefs}
+                userLocation={userLocation}
+                radiusKm={NEARBY_RADIUS_KM}
+                onSelectSpot={(id, dateKey) => openSpot(id, dateKey)}
                 onNavigateTab={(tab) => navigateTo(tab)}
               />
             ) : activeTab === 'spots' ? (
@@ -804,7 +839,7 @@ export default function App() {
                 onRequestGps={requestGpsLocation}
                 onSetManualLocation={saveLocation}
                 onOpenOtherSpotsSearch={() => setSearchMenuOpen(true)}
-                onSelectSpot={(id) => setSelectedSpotId(id)}
+                onSelectSpot={(id) => openSpot(id)}
                 onToggleFavorite={(id) => void handleToggleFavorite(id)}
                 onOpenAddSpot={() => setAddSpotOpen(true)}
                 onRequireAuth={() => void handleSignIn()}
@@ -885,13 +920,15 @@ export default function App() {
       {/* Native-Feel Mobile Bottom Tab Bar (Thumb-Friendly at the Beach) */}
       <nav
         aria-label="Navigation mobile"
-        className="md:hidden fixed bottom-0 inset-x-0 z-30 h-16 bg-[#060D13]/92 backdrop-blur-xl border-t border-white/12 px-2 grid grid-cols-4 items-center"
+        className="md:hidden fixed bottom-0 inset-x-0 z-30 h-16 bg-[#060D13]/92 backdrop-blur-xl border-t border-white/12 px-1.5 grid grid-cols-5 items-center"
       >
         {navItems.map((item) => {
           const active = activeTab === item.id && !selectedSpotId;
           const Icon =
             item.id === 'session'
               ? Waves
+              : item.id === 'forecast'
+              ? CalendarDays
               : item.id === 'spots'
               ? LocateFixed
               : item.id === 'crew'
@@ -907,7 +944,9 @@ export default function App() {
               }`}
             >
               <Icon className="w-5 h-5" />
-              <span className="text-[11px] font-medium leading-none">{item.shortLabel}</span>
+              <span className="text-[10px] font-medium leading-none whitespace-nowrap">
+                {item.shortLabel}
+              </span>
             </button>
           );
         })}

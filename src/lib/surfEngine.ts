@@ -2,7 +2,9 @@ import { BOARD_TYPE_LABELS, SURFER_LEVEL_LABELS } from '../data/spots';
 import type {
   BestWindowRecommendation,
   BoardType,
+  DailySpotForecast,
   DaylightSpan,
+  DayPartSummary,
   HourlySurfPoint,
   ParkingReportRecord,
   ProfileFitStatus,
@@ -475,6 +477,30 @@ export function formatFrenchDateLabel(dateKey: string): string {
   }).format(dt);
 }
 
+export function getForecastDateKeys(days = 7): string[] {
+  return Array.from({ length: days }, (_, idx) => getLocalDateKey(idx));
+}
+
+export function formatShortDayHeader(dateKey: string): { weekday: string; dayNum: string; isToday: boolean } {
+  const today = getLocalDateKey(0);
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  const weekday =
+    dateKey === today
+      ? 'Auj.'
+      : new Intl.DateTimeFormat('fr-FR', { weekday: 'short' })
+          .format(dt)
+          .replace(/\.$/, '');
+  const dayNum = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' })
+    .format(dt)
+    .replace(/\.$/, '');
+  return {
+    weekday: weekday.charAt(0).toUpperCase() + weekday.slice(1),
+    dayNum,
+    isToday: dateKey === today,
+  };
+}
+
 export function formatHourLabel(hour: number): string {
   return `${String(hour).padStart(2, '0')}h00`;
 }
@@ -483,8 +509,8 @@ async function fetchSpotChunk(spots: SurfSpot[]): Promise<Record<string, SpotFor
   const lats = spots.map((s) => s.lat.toFixed(4)).join(',');
   const lngs = spots.map((s) => s.lng.toFixed(4)).join(',');
 
-  const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${lats}&longitude=${lngs}&hourly=wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period,sea_surface_temperature&timezone=auto&forecast_days=4`;
-  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,weather_code,cloud_cover&daily=sunrise,sunset&timezone=auto&forecast_days=4`;
+  const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${lats}&longitude=${lngs}&hourly=wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period,sea_surface_temperature&timezone=auto&forecast_days=7`;
+  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,weather_code,cloud_cover&daily=sunrise,sunset&timezone=auto&forecast_days=7`;
 
   const [marineRes, weatherRes] = await Promise.all([fetch(marineUrl), fetch(weatherUrl)]);
 
@@ -769,6 +795,67 @@ export function rankSpotsForDate(
   }
 
   return ranked.sort((a, b) => b.recommendation.avgScore - a.recommendation.avgScore);
+}
+
+export function buildDailySpotForecast(
+  spot: SurfSpot,
+  forecast: SpotForecast | undefined,
+  dateKey: string,
+  prefs?: Partial<SurferPreferences>
+): DailySpotForecast | null {
+  if (!forecast) return null;
+  const todayKey = getLocalDateKey(0);
+  const recommendation = findBestWindowForSpot(spot, forecast, dateKey, prefs, {
+    includePastToday: dateKey !== todayKey,
+  });
+  if (!recommendation) return null;
+
+  const dayPoints = forecast.hourly.filter((p) => p.dateKey === dateKey);
+  const slots: Array<{ label: DayPartSummary['label']; start: number; end: number }> = [
+    { label: 'Matin', start: 7, end: 11 },
+    { label: 'Midi', start: 12, end: 15 },
+    { label: 'Soir', start: 16, end: 20 },
+  ];
+
+  const parts: DayPartSummary[] = [];
+  for (const slot of slots) {
+    const pts = dayPoints.filter((p) => p.hour >= slot.start && p.hour <= slot.end);
+    if (pts.length === 0) continue;
+    const mid = pts[Math.floor(pts.length / 2)];
+    const avgWave = Number(
+      (pts.reduce((acc, p) => acc + p.waveHeight, 0) / pts.length).toFixed(1)
+    );
+    const avgPeriod = Math.round(
+      pts.reduce((acc, p) => acc + p.swellPeriod, 0) / pts.length
+    );
+    const avgWind = Math.round(
+      pts.reduce((acc, p) => acc + p.windSpeed, 0) / pts.length
+    );
+    const avgScore = Number(
+      (
+        pts.reduce(
+          (acc, p) => acc + (prefs ? computeHourlySurfScore(spot, p, prefs) : p.score),
+          0
+        ) / pts.length
+      ).toFixed(1)
+    );
+
+    parts.push({
+      label: slot.label,
+      waveHeight: avgWave,
+      swellPeriod: avgPeriod,
+      windSpeed: avgWind,
+      windDirection: mid.windDirection,
+      windQuality: mid.windQuality,
+      score: avgScore,
+    });
+  }
+
+  return {
+    dateKey,
+    recommendation,
+    parts,
+  };
 }
 
 export async function searchCoastalLocation(query: string): Promise<GeoSearchResult[]> {

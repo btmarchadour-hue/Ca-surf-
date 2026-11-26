@@ -226,7 +226,23 @@ export interface SpotWebcamInfo {
   hasDirectBeachCam: boolean;
 }
 
-export type ActiveTab = 'session' | 'spots' | 'crew' | 'profile';
+export type ActiveTab = 'session' | 'forecast' | 'spots' | 'crew' | 'profile';
+
+export interface DayPartSummary {
+  label: 'Matin' | 'Midi' | 'Soir';
+  waveHeight: number;
+  swellPeriod: number;
+  windSpeed: number;
+  windDirection: number;
+  windQuality: WindQuality;
+  score: number;
+}
+
+export interface DailySpotForecast {
+  dateKey: string;
+  recommendation: BestWindowRecommendation;
+  parts: DayPartSummary[];
+}
 
 export interface UserLocation {
   lat: number;
@@ -234,5 +250,3 @@ export interface UserLocation {
   label: string;
   source: 'gps' | 'city';
 }
-
-
